@@ -95,7 +95,7 @@ uint64_t dictGenCaseHashFunction(const unsigned char *buf, int len) {
 
 /* Reset a hash table already initialized with ht_init().
  * NOTE: This function should only be called by ht_destroy(). */
-static void _dictReset(dictht *ht)
+static void _dictReset(dictht *ht) // 懒加载
 {
     ht->table = NULL;
     ht->size = 0;

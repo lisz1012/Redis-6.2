@@ -3214,7 +3214,7 @@ void initServer(void) {
             strerror(errno));
         exit(1);
     }
-    server.db = zmalloc(sizeof(redisDb)*server.dbnum);
+    server.db = zmalloc(sizeof(redisDb)*server.dbnum); // 存储的罪魁祸首
 
     /* Open the TCP listening socket for the user commands. */
     if (server.port != 0 &&

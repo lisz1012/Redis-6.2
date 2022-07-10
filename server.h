@@ -712,9 +712,9 @@ typedef struct clientReplyBlock {
 typedef struct redisDb {
     dict *dict;                 /* The keyspace for this DB */
     dict *expires;              /* Timeout of keys with a timeout set */
-    dict *blocking_keys;        /* Keys with clients waiting for data (BLPOP)*/
+    dict *blocking_keys;        /* Keys with clients waiting for data (BLPOP) Redis遇到这种阻塞的命令，自己不阻塞，而是把要操作的Key和相应的客户端放到这里，外界如果有人放了东西，则移到ready_keys中，但线程不至于阻塞住*/
     dict *ready_keys;           /* Blocked keys that received a PUSH */
-    dict *watched_keys;         /* WATCHED keys for MULTI/EXEC CAS */
+    dict *watched_keys;         /* WATCHED keys for MULTI/EXEC CAS 关注的key发生变化了就会回退，执行失败*/
     int id;                     /* Database ID */
     long long avg_ttl;          /* Average TTL, just for stats */
     unsigned long expires_cursor; /* Cursor of the active expire cycle. */

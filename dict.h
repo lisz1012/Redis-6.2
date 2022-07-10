@@ -55,7 +55,7 @@ typedef struct dictEntry {
         int64_t s64;
         double d;
     } v;
-    struct dictEntry *next;
+    struct dictEntry *next;  // 单链表
 } dictEntry;
 
 typedef struct dictType {
@@ -72,16 +72,16 @@ typedef struct dictType {
  * implement incremental rehashing, for the old to the new table. */
 typedef struct dictht {
     dictEntry **table;
-    unsigned long size;
-    unsigned long sizemask;
+    unsigned long size;  // 数组的大小
+    unsigned long sizemask;  // 用法的效果同哈希取模，用来决定0～size-1中的哪个下标
     unsigned long used;
 } dictht;
 
 typedef struct dict {
     dictType *type;
     void *privdata;
-    dictht ht[2];
-    long rehashidx; /* rehashing not in progress if rehashidx == -1 */
+    dictht ht[2]; // 一个字典里面有两个哈希表，为的是rehash，渐进式扩容，不必一次全部迁移完，减少阻塞。新增的key写到备用ht中。在写请求和定时到的时候都做迁移，以链为单位迁移
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 rehash中，行为会有些许不同*/
     int16_t pauserehash; /* If >0 rehashing is paused (<0 indicates coding error) */
 } dict;
 
