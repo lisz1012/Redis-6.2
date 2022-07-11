@@ -2245,10 +2245,10 @@ void readQueryFromClient(connection *conn) { // 这个函数会被分段执行 1
         if (remaining > 0 && remaining < readlen) readlen = remaining;
     }
 
-    qblen = sdslen(c->querybuf);
+    qblen = sdslen(c->querybuf);  // 得到sds结构体的最后那一块实际数据buf的长度
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
     c->querybuf = sdsMakeRoomFor(c->querybuf, readlen); // 从连接socket走系调，读到字节数组，放到query buffer
-    nread = connRead(c->conn, c->querybuf+qblen, readlen);
+    nread = connRead(c->conn, c->querybuf+qblen, readlen); // 从socket里面读数据， c->querybuf指的是s的地址，也就是实际buf数据的地址
     if (nread == -1) {
         if (connGetState(conn) == CONN_STATE_CONNECTED) {
             return;

@@ -149,7 +149,7 @@ static inline int connWrite(connection *conn, const void *data, size_t data_len)
  * connGetState() to see if the connection state is still CONN_STATE_CONNECTED.
  */
 static inline int connRead(connection *conn, void *buf, size_t buf_len) {
-    return conn->type->read(conn, buf, buf_len);
+    return conn->type->read(conn, buf, buf_len); // 调用 系调read
 }
 
 /* Register a write handler, to be called when the connection is writable.

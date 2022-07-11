@@ -46,7 +46,7 @@ static inline int sdsHdrSize(char type) {
         case SDS_TYPE_5:
             return sizeof(struct sdshdr5);
         case SDS_TYPE_8:
-            return sizeof(struct sdshdr8);
+            return sizeof(struct sdshdr8); // 注意⚠️：返回长度为3，char buf[];一定要放在最后一项的位置上，而且不会被计算到sizeof的长度
         case SDS_TYPE_16:
             return sizeof(struct sdshdr16);
         case SDS_TYPE_32:
@@ -105,7 +105,7 @@ sds _sdsnewlen(const void *init, size_t initlen, int trymalloc) {
     sds s;
     char type = sdsReqType(initlen);
     /* Empty strings are usually created in order to append. Use type 8
-     * since type 5 is not good at this. */
+     * since type 5 is not good at this. 而且下面的switch中的赋值：initlen << SDS_TYPE_BITS 也不会出现不同case的结果有重复 */
     if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
     int hdrlen = sdsHdrSize(type);
     unsigned char *fp; /* flags pointer. */
@@ -113,28 +113,28 @@ sds _sdsnewlen(const void *init, size_t initlen, int trymalloc) {
 
     assert(initlen + hdrlen + 1 > initlen); /* Catch size_t overflow */
     sh = trymalloc?
-        s_trymalloc_usable(hdrlen+initlen+1, &usable) :
+        s_trymalloc_usable(hdrlen+initlen+1, &usable) : // +1是为了最后拼接上的\0
         s_malloc_usable(hdrlen+initlen+1, &usable);
     if (sh == NULL) return NULL;
     if (init==SDS_NOINIT)
         init = NULL;
     else if (!init)
         memset(sh, 0, hdrlen+initlen+1);
-    s = (char*)sh+hdrlen;
-    fp = ((unsigned char*)s)-1;
+    s = (char*)sh+hdrlen;  // s这个指针实际上指向了char buf[]这个实际数据的起始位置，而这个char[]字节数组是动态的
+    fp = ((unsigned char*)s)-1; // flags变量的地址。但是为什么不sh->flags?
     usable = usable-hdrlen-1;
     if (usable > sdsTypeMaxSize(type))
         usable = sdsTypeMaxSize(type);
     switch(type) {
         case SDS_TYPE_5: {
-            *fp = type | (initlen << SDS_TYPE_BITS);
+            *fp = type | (initlen << SDS_TYPE_BITS); // 这种情况下 initlen最大为： 0001 1111
             break;
         }
         case SDS_TYPE_8: {
             SDS_HDR_VAR(8,s);
             sh->len = initlen;
             sh->alloc = usable;
-            *fp = type;
+            *fp = type; // 2倍的type值就是结构体中，它前面的len和alloc变量所占结构体中的宽度
             break;
         }
         case SDS_TYPE_16: {

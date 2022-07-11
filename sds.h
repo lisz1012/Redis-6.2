@@ -44,18 +44,18 @@ typedef char *sds;
 
 /* Note: sdshdr5 is never used, we just access the flags byte directly.
  * However is here to document the layout of type 5 SDS strings. */
-struct __attribute__ ((__packed__)) sdshdr5 {
-    unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
-    char buf[];
+struct __attribute__ ((__packed__)) sdshdr5 { // "hdr"是header的意思
+    unsigned char flags; /* 3 lsb of type, and 5 msb of string length 左三位是类型，后五位是buffer的宽度：最长32字节，存取小数据的时候元数据也尽量小 --> 动态 */
+    char buf[];  // 弹性数组
 };
 struct __attribute__ ((__packed__)) sdshdr8 {
-    uint8_t len; /* used */
+    uint8_t len; /* used  1 byte， buffer最大存放256字节 */
     uint8_t alloc; /* excluding the header and null terminator */
-    unsigned char flags; /* 3 lsb of type, 5 unused bits */
+    unsigned char flags; /* 3 lsb of type, 5 unused bits buffer太长了就单拿出去了，不用这5位了，也装不下 */
     char buf[];
 };
 struct __attribute__ ((__packed__)) sdshdr16 {
-    uint16_t len; /* used */
+    uint16_t len; /* used 65535 前三个field是元数据 */
     uint16_t alloc; /* excluding the header and null terminator */
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
     char buf[];
@@ -73,7 +73,7 @@ struct __attribute__ ((__packed__)) sdshdr64 {
     char buf[];
 };
 
-#define SDS_TYPE_5  0
+#define SDS_TYPE_5  0  // 5种SDS类型
 #define SDS_TYPE_8  1
 #define SDS_TYPE_16 2
 #define SDS_TYPE_32 3
@@ -81,16 +81,16 @@ struct __attribute__ ((__packed__)) sdshdr64 {
 #define SDS_TYPE_MASK 7
 #define SDS_TYPE_BITS 3
 #define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = (void*)((s)-(sizeof(struct sdshdr##T)));
-#define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
+#define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T)))) // char buf[]的起始位置 - 头的长度，就得到了整个结构体的地址
 #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
 
 static inline size_t sdslen(const sds s) {
-    unsigned char flags = s[-1];
+    unsigned char flags = s[-1]; // 在sdshdrX结构体中，s指向了 char buf[]，而其前一个字节就是flags
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5:
-            return SDS_TYPE_5_LEN(flags);
+            return SDS_TYPE_5_LEN(flags); // 当初initlen往左移了3位，SDS_TYPE_5_LEN里面往右移三位
         case SDS_TYPE_8:
-            return SDS_HDR(8,s)->len;
+            return SDS_HDR(8,s)->len;  // 拿到整个结构体的地址，才方便做 ->len, 得到实际数据的长度
         case SDS_TYPE_16:
             return SDS_HDR(16,s)->len;
         case SDS_TYPE_32:
