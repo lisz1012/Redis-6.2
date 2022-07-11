@@ -64,7 +64,7 @@ typedef enum {
 } GeoDirection;
 
 typedef struct {
-    uint64_t bits;
+    uint64_t bits; // 8字节
     uint8_t step;
 } GeoHashBits;
 

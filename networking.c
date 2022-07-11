@@ -142,7 +142,7 @@ client *createClient(connection *conn) {
     c->bufpos = 0;
     c->qb_pos = 0;
     c->querybuf = sdsempty();
-    c->pending_querybuf = sdsempty();
+    c->pending_querybuf = sdsempty(); // 刚初始化，用户还没有发任何东西的时候会先整出一个空的buffer来
     c->querybuf_peak = 0;
     c->reqtype = 0;
     c->argc = 0;
@@ -2247,7 +2247,7 @@ void readQueryFromClient(connection *conn) { // 这个函数会被分段执行 1
 
     qblen = sdslen(c->querybuf);
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
-    c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
+    c->querybuf = sdsMakeRoomFor(c->querybuf, readlen); // 从连接socket走系调，读到字节数组，放到query buffer
     nread = connRead(c->conn, c->querybuf+qblen, readlen);
     if (nread == -1) {
         if (connGetState(conn) == CONN_STATE_CONNECTED) {

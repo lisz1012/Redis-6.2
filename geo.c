@@ -41,7 +41,7 @@ int zslValueLteMax(double value, zrangespec *spec);
 /* ====================================================================
  * This file implements the following commands:
  *
- *   - geoadd - add coordinates for value to geoset
+ *   -  geoadd - add coordinates for value to geoset
  *   - georadius - search radius by coordinates in geoset
  *   - georadiusbymember - search radius based on geoset member position
  * ==================================================================== */

@@ -80,8 +80,8 @@ typedef struct dictht {
 typedef struct dict {
     dictType *type;
     void *privdata;
-    dictht ht[2]; // 一个字典里面有两个哈希表，为的是rehash，渐进式扩容，不必一次全部迁移完，减少阻塞。新增的key写到备用ht中。在写请求和定时到的时候都做迁移，以链为单位迁移
-    long rehashidx; /* rehashing not in progress if rehashidx == -1 rehash中，行为会有些许不同*/
+    dictht ht[2]; // 一个字典里面有两个哈希表，为的是rehash，渐进式扩容，不必一次全部迁移完，减少阻塞。新增的key写到备用ht中。在写请求和定时到的时候都做迁移，以链为单位迁移.由于是单线程，rehash期间不会有其他客户端来读写
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 rehash中，行为会有些许不同, 比如get的时候会查了看两个ht*/
     int16_t pauserehash; /* If >0 rehashing is paused (<0 indicates coding error) */
 } dict;
 

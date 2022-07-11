@@ -166,7 +166,7 @@ sds _sdsnewlen(const void *init, size_t initlen, int trymalloc) {
 }
 
 sds sdsnewlen(const void *init, size_t initlen) {
-    return _sdsnewlen(init, initlen, 0);
+    return _sdsnewlen(init, initlen, 0); // 内置私有
 }
 
 sds sdstrynewlen(const void *init, size_t initlen) {
