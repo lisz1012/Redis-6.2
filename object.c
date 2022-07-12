@@ -38,7 +38,7 @@
 
 /* ===================== Creation and parsing of objects ==================== */
 
-robj *createObject(int type, void *ptr) {
+robj *createObject(int type, void *ptr) { // *ptr是指向真实数据的指针
     robj *o = zmalloc(sizeof(*o));
     o->type = type;
     o->encoding = OBJ_ENCODING_RAW;

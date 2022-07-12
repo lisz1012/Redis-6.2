@@ -1927,7 +1927,7 @@ int processMultibulkBuffer(client *c) {
         /* We know for sure there is a whole line since newline != NULL,
          * so go ahead and find out the multi bulk length. */
         serverAssertWithInfo(c,NULL,c->querybuf[c->qb_pos] == '*');
-        ok = string2ll(c->querybuf+1+c->qb_pos,newline-(c->querybuf+1+c->qb_pos),&ll);
+        ok = string2ll(c->querybuf+1+c->qb_pos,newline-(c->querybuf+1+c->qb_pos),&ll); // +1是跳过*，ll是属性的个数
         if (!ok || ll > 1024*1024) {
             addReplyError(c,"Protocol error: invalid multibulk length");
             setProtocolError("invalid mbulk count",c);
@@ -1946,7 +1946,7 @@ int processMultibulkBuffer(client *c) {
 
         /* Setup argv array on client structure */
         if (c->argv) zfree(c->argv);
-        c->argv = zmalloc(sizeof(robj*)*c->multibulklen);
+        c->argv = zmalloc(sizeof(robj*)*c->multibulklen); // 属性数量c->multibulklen 乘以 robj大小 sizeof(robj*) 就是要为参数开辟的空间
         c->argv_len_sum = 0;
     }
 
@@ -2023,7 +2023,7 @@ int processMultibulkBuffer(client *c) {
                 c->bulklen >= PROTO_MBULK_BIG_ARG &&
                 sdslen(c->querybuf) == (size_t)(c->bulklen+2))
             {
-                c->argv[c->argc++] = createObject(OBJ_STRING,c->querybuf);
+                c->argv[c->argc++] = createObject(OBJ_STRING,c->querybuf); // 不论是string的sds还是块表等结构，都要包装成robj，才能最终放到dictEntry中去
                 c->argv_len_sum += c->bulklen;
                 sdsIncrLen(c->querybuf,-2); /* remove CRLF */
                 /* Assume that if we saw a fat argument we'll see another one
@@ -2137,7 +2137,7 @@ int processPendingCommandsAndResetClient(client *c) {
  * pending query buffer, already representing a full command, to process. */
 void processInputBuffer(client *c) { // 从内核搬数据
     /* Keep processing while there is something in the input buffer */
-    while(c->qb_pos < sdslen(c->querybuf)) {
+    while(c->qb_pos < sdslen(c->querybuf)) { // c->querybuf 中实际数据的长度，不算头部
         /* Immediately abort if the client is in the middle of something. */
         if (c->flags & CLIENT_BLOCKED) break;
 
@@ -2159,8 +2159,8 @@ void processInputBuffer(client *c) { // 从内核搬数据
         if (c->flags & (CLIENT_CLOSE_AFTER_REPLY|CLIENT_CLOSE_ASAP)) break;
 
         /* Determine request type when unknown. */
-        if (!c->reqtype) {
-            if (c->querybuf[c->qb_pos] == '*') {
+        if (!c->reqtype) { // 刚构建出来的时候，还不知道type
+            if (c->querybuf[c->qb_pos] == '*') { // 一上来c->qb_pos = 0，按照协议查看有没有*
                 c->reqtype = PROTO_REQ_MULTIBULK;
             } else {
                 c->reqtype = PROTO_REQ_INLINE;
@@ -2248,7 +2248,7 @@ void readQueryFromClient(connection *conn) { // 这个函数会被分段执行 1
     qblen = sdslen(c->querybuf);  // 得到sds结构体的最后那一块实际数据buf的长度
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
     c->querybuf = sdsMakeRoomFor(c->querybuf, readlen); // 从连接socket走系调，读到字节数组，放到query buffer
-    nread = connRead(c->conn, c->querybuf+qblen, readlen); // 从socket里面读数据， c->querybuf指的是s的地址，也就是实际buf数据的地址
+    nread = connRead(c->conn, c->querybuf+qblen, readlen); // 从socket里面读数据， c->querybuf指的是s的地址，也就是实际buf数据的地址，不断积压，比如Redis multi
     if (nread == -1) {
         if (connGetState(conn) == CONN_STATE_CONNECTED) {
             return;

@@ -671,14 +671,14 @@ typedef struct RedisModuleDigest {
 #define OBJ_SHARED_REFCOUNT INT_MAX     /* Global object never destroyed. */
 #define OBJ_STATIC_REFCOUNT (INT_MAX-1) /* Object allocated in the stack. */
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
-typedef struct redisObject {
-    unsigned type:4;
-    unsigned encoding:4;
+typedef struct redisObject { // 整个结构体一共16个字节，巧妙的对齐
+    unsigned type:4;  // value的类型，用4位表示
+    unsigned encoding:4; // 编码
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
-                            * and most significant 16 bits access time). */
-    int refcount;
-    void *ptr;
+                            * and most significant 16 bits access time). LRU_BITS = 24个二进制位，共3字节 */
+    int refcount; // 4字节
+    void *ptr;  // 真实的数据的指针，8字节
 } robj;
 
 /* The a string name for an object's type as listed above
