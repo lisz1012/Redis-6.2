@@ -81,13 +81,13 @@ robj *createRawStringObject(const char *ptr, size_t len) {
 /* Create a string object with encoding OBJ_ENCODING_EMBSTR, that is
  * an object where the sds string is actually an unmodifiable string
  * allocated in the same chunk as the object itself. */
-robj *createEmbeddedStringObject(const char *ptr, size_t len) { // 为什么叫"EmbededString"？这是有其深意的！
+robj *createEmbeddedStringObject(const char *ptr, size_t len) { // 为什么叫"EmbeddedString"？这是有其深意的！
     robj *o = zmalloc(sizeof(robj)+sizeof(struct sdshdr8)+len+1); // 16 + 3（sds_8 header）+ 44 + 1 = 64 bytes, len是真实数据EMB String的长度。结论：尽量key和value别长于44！
     struct sdshdr8 *sh = (void*)(o+1); // 参考下面的 o->ptr = sh+1; 可得：对于OBJ_ENCODING_EMBSTR 这种编码方式，redisObject和它里面的ptr指针所指向的实际数据在内存中是连续的64字节，而Linux的缓存行 cache_alignment 正好也是64字节
 
     o->type = OBJ_STRING;
     o->encoding = OBJ_ENCODING_EMBSTR;
-    o->ptr = sh+1;    // 贯彻上面第 85 行开辟内存时的规划
+    o->ptr = sh+1;    // 贯彻上面第 85 行开辟内存时的规划。sdshdr8 （3字节）之后的下一个字节，刚好是char buf[]的起始地址，实际数据嵌入到了元数据，和指针就挨着放
     o->refcount = 1;
     if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
         o->lru = (LFUGetTimeInMinutes()<<8) | LFU_INIT_VAL;
