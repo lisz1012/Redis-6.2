@@ -504,7 +504,7 @@ typedef enum {
 
 /* A redis object, that is a type able to hold a string / list / set */
 
-/* The actual Redis Object   4 个二进制位表示 redisObject 的 value 的类型*/
+/* The actual Redis Object   4 个二进制位表示 redisObject 的 value 的类型， 即 redisObject 中type的取值 */
 #define OBJ_STRING 0    /* String object. */
 #define OBJ_LIST 1      /* List object. */
 #define OBJ_SET 2       /* Set object. */
@@ -673,7 +673,7 @@ typedef struct RedisModuleDigest {
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
 typedef struct redisObject { // 整个结构体一共16个字节，巧妙的对齐
     unsigned type:4;  // value的类型，用4位表示
-    unsigned encoding:4; // 编码
+    unsigned encoding:4; // 编码： OBJ_ENCODING_EMBSTR or OBJ_ENCODING_INT 等
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
                             * and most significant 16 bits access time). LRU_BITS = 24个二进制位，共3字节 */
