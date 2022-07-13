@@ -504,7 +504,7 @@ typedef enum {
 
 /* A redis object, that is a type able to hold a string / list / set */
 
-/* The actual Redis Object */
+/* The actual Redis Object   4 个二进制位表示 redisObject 的 value 的类型*/
 #define OBJ_STRING 0    /* String object. */
 #define OBJ_LIST 1      /* List object. */
 #define OBJ_SET 2       /* Set object. */
@@ -651,7 +651,7 @@ typedef struct RedisModuleDigest {
 
 /* Objects encoding. Some kind of objects like Strings and Hashes can be
  * internally represented in multiple ways. The 'encoding' field of the object
- * is set to one of this fields for this object. */
+ * is set to one of this fields for this object. 4 个二进制位表示 redisObject 的编码（encoding）的类型*/
 #define OBJ_ENCODING_RAW 0     /* Raw representation */
 #define OBJ_ENCODING_INT 1     /* Encoded as integer */
 #define OBJ_ENCODING_HT 2      /* Encoded as hash table */
