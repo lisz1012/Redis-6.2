@@ -257,7 +257,7 @@ void dbOverwrite(redisDb *db, robj *key, robj *val) {
  * The client 'c' argument may be set to NULL if the operation is performed
  * in a context where there is no clear client performing the operation. */
 void genericSetKey(client *c, redisDb *db, robj *key, robj *val, int keepttl, int signal) {
-    if (lookupKeyWrite(db,key) == NULL) {
+    if (lookupKeyWrite(db,key) == NULL) { // 新建还是覆盖？
         dbAdd(db,key,val);
     } else {
         dbOverwrite(db,key,val);

@@ -4018,7 +4018,7 @@ int processCommand(client *c) {
 
     /* Now lookup the command and check ASAP about trivial error conditions
      * such as wrong arity, bad command name and so forth. */
-    c->cmd = c->lastcmd = lookupCommand(c->argv[0]->ptr); // 去内存中查找了有没有argv[0]这么个命令
+    c->cmd = c->lastcmd = lookupCommand(c->argv[0]->ptr); // 去内存中查找了有没有argv[0]这么个命令，这个字符串往往指定了对什么数据类型做一个什么操作
     if (!c->cmd) { // 上面的查找并未找到这个命令
         sds args = sdsempty();
         int i;

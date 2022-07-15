@@ -236,36 +236,36 @@ robj *createQuicklistObject(void) {
 robj *createZiplistObject(void) {
     unsigned char *zl = ziplistNew();
     robj *o = createObject(OBJ_LIST,zl);
-    o->encoding = OBJ_ENCODING_ZIPLIST;
+    o->encoding = OBJ_ENCODING_ZIPLIST; // 编码跟上面的快表不一样，但现在不用了
     return o;
 }
 
 robj *createSetObject(void) {
     dict *d = dictCreate(&setDictType,NULL);
-    robj *o = createObject(OBJ_SET,d);
-    o->encoding = OBJ_ENCODING_HT;
+    robj *o = createObject(OBJ_SET,d); // 类型是Set
+    o->encoding = OBJ_ENCODING_HT; // 编码是HT，哈希表
     return o;
 }
 
 robj *createIntsetObject(void) {
     intset *is = intsetNew();
     robj *o = createObject(OBJ_SET,is);
-    o->encoding = OBJ_ENCODING_INTSET;
+    o->encoding = OBJ_ENCODING_INTSET; // 又一个编码：整数集合
     return o;
 }
 
 robj *createHashObject(void) {
     unsigned char *zl = ziplistNew();
     robj *o = createObject(OBJ_HASH, zl);
-    o->encoding = OBJ_ENCODING_ZIPLIST;
+    o->encoding = OBJ_ENCODING_ZIPLIST;  // 哎？怎么是压缩表？不是OBJ_ENCODING_HT呢？压缩表得看一下
     return o;
 }
 
-robj *createZsetObject(void) {
+robj *createZsetObject(void) { // 有序集合可以是跳表实现，也可以是压缩表实现，见下一个函数的encoding类型
     zset *zs = zmalloc(sizeof(*zs));
     robj *o;
 
-    zs->dict = dictCreate(&zsetDictType,NULL);
+    zs->dict = dictCreate(&zsetDictType,NULL); // 多维护一个字典哈希表，同时保证有序性和随机读取，减少遍历
     zs->zsl = zslCreate();
     o = createObject(OBJ_ZSET,zs);
     o->encoding = OBJ_ENCODING_SKIPLIST;
@@ -273,9 +273,9 @@ robj *createZsetObject(void) {
 }
 
 robj *createZsetZiplistObject(void) {
-    unsigned char *zl = ziplistNew();
+    unsigned char *zl = ziplistNew();  // 数据量小的时候用压缩表，省空间，数据量小的时候查找本来也不慢
     robj *o = createObject(OBJ_ZSET,zl);
-    o->encoding = OBJ_ENCODING_ZIPLIST;
+    o->encoding = OBJ_ENCODING_ZIPLIST; // 压缩表实现
     return o;
 }
 
@@ -460,7 +460,7 @@ robj *tryObjectEncoding(robj *o) {
      * Note that we are sure that a string larger than 20 chars is not
      * representable as a 32 nor 64 bit integer. */
     len = sdslen(s);
-    if (len <= 20 && string2l(s,len,&value)) {
+    if (len <= 20 && string2l(s,len,&value)) { // 什么时候value是int？就是这个条件符合的时候，尝试把字符串转成long，看成不成功。int更省空间。OBJECT encoding key 看编码
         /* This object is encodable as a long. Try to use a shared object.
          * Note that we avoid using shared integers when maxmemory is used
          * because every object needs to have a private LRU field for the LRU

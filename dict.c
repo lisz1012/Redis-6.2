@@ -218,11 +218,11 @@ int dictRehash(dict *d, int n) {
         /* Note that rehashidx can't overflow as we are sure there are more
          * elements because ht[0].used != 0 */
         assert(d->ht[0].size > (unsigned long)d->rehashidx);
-        while(d->ht[0].table[d->rehashidx] == NULL) {
+        while(d->ht[0].table[d->rehashidx] == NULL) { // "table"是哈希表中的那个数组
             d->rehashidx++;
-            if (--empty_visits == 0) return 1;
+            if (--empty_visits == 0) return 1; // 在数组中最多往后数10个，看有没有遇见非空链表，一直没遇见，也就强制直接返回，如果遇见了，就计算新的哈希值，重新哈希
         }
-        de = d->ht[0].table[d->rehashidx];
+        de = d->ht[0].table[d->rehashidx]; // 拿出非空的这个单链表
         /* Move all the keys in this bucket from the old to the new hash HT */
         while(de) {
             uint64_t h;
@@ -293,8 +293,8 @@ int dictAdd(dict *d, void *key, void *val)
 {
     dictEntry *entry = dictAddRaw(d,key,NULL);
 
-    if (!entry) return DICT_ERR;
-    dictSetVal(d, entry, val);
+    if (!entry) return DICT_ERR; // 之前先做了 lookupKeyWrite(db,key) == NULL 才决定新添加，结果这个key存在一个对应的dictEntry，一定是哪儿出错了
+    dictSetVal(d, entry, val); // 新的dictEntry的插入位置是头部，dictAddRaw之后已经准备在那里了，直接设进去就好
     return DICT_OK;
 }
 
@@ -322,7 +322,7 @@ dictEntry *dictAddRaw(dict *d, void *key, dictEntry **existing)
     dictEntry *entry;
     dictht *ht;
 
-    if (dictIsRehashing(d)) _dictRehashStep(d);
+    if (dictIsRehashing(d)) _dictRehashStep(d); // 渐进式rehash，并发量越高，rehash越快
 
     /* Get the index of the new element, or -1 if
      * the element already exists. */
@@ -335,7 +335,7 @@ dictEntry *dictAddRaw(dict *d, void *key, dictEntry **existing)
      * more frequently. */
     ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
     entry = zmalloc(sizeof(*entry));
-    entry->next = ht->table[index];
+    entry->next = ht->table[index]; // 在链表跟数组的结合部（头）插入
     ht->table[index] = entry;
     ht->used++;
 
@@ -506,15 +506,15 @@ dictEntry *dictFind(dict *d, const void *key)
     uint64_t h, idx, table;
 
     if (dictSize(d) == 0) return NULL; /* dict is empty */
-    if (dictIsRehashing(d)) _dictRehashStep(d);
+    if (dictIsRehashing(d)) _dictRehashStep(d); // 渐进式rehash
     h = dictHashKey(d, key);
-    for (table = 0; table <= 1; table++) {
-        idx = h & d->ht[table].sizemask;
-        he = d->ht[table].table[idx]; // 单向链表起始元素
+    for (table = 0; table <= 1; table++) { // 曾记否？两张哈希表，动态扩容的时候交替使用的
+        idx = h & d->ht[table].sizemask;  // 跟 sizemask 做 & 运算就相当于哈希取模，得到的是链表在数组中的下标：idx。 size=2， sziemask=1；size=4，sizemask=3...
+        he = d->ht[table].table[idx]; // 取得单向链表起始元素的第一个node。这一行里第二个"table"是一个dictEntry组成的的数组
         while(he) { // he是哈希表中的一个单向链表的元素
             if (key==he->key || dictCompareKeys(d, key, he->key)) // 哈希表的链表中遍历命中啦！！！
                 return he;
-            he = he->next;
+            he = he->next;  // 遍历链表，看看每个链表的node命没命中要查的key
         }
         if (!dictIsRehashing(d)) return NULL;
     }
@@ -1034,7 +1034,7 @@ static long _dictKeyIndex(dict *d, const void *key, uint64_t hash, dictEntry **e
     /* Expand the hash table if needed */
     if (_dictExpandIfNeeded(d) == DICT_ERR)
         return -1;
-    for (table = 0; table <= 1; table++) {
+    for (table = 0; table <= 1; table++) { // 还是遍历两张表，如果rehashing，0->1上迁移，则直接放到1号表中。因为如果是添加新的，一定是0、1都找不到，则最后会添加到1号表中。这种写法覆盖了各种情况，非rehashing期间0号表为空
         idx = hash & d->ht[table].sizemask;
         /* Search if this slot does not already contain the given key */
         he = d->ht[table].table[idx];

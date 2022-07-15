@@ -263,8 +263,8 @@ void setCommand(client *c) {
         return;
     }
 
-    c->argv[2] = tryObjectEncoding(c->argv[2]);
-    setGenericCommand(c,flags,c->argv[1],c->argv[2],expire,unit,NULL,NULL);
+    c->argv[2] = tryObjectEncoding(c->argv[2]);  // 在此之前还没有做编码的优化，下标为2，是value；下标为1，则是key
+    setGenericCommand(c,flags,c->argv[1],c->argv[2],expire,unit,NULL,NULL); // 写入Redis的dict字典那个数据结构
 }
 
 void setnxCommand(client *c) {
