@@ -47,7 +47,7 @@ void hashTypeTryConversion(robj *o, robj **argv, int start, int end) {
         if (!sdsEncodedObject(argv[i]))
             continue;
         size_t len = sdslen(argv[i]->ptr);
-        if (len > server.hash_max_ziplist_value) {
+        if (len > server.hash_max_ziplist_value) { // 长度大于OBJ_ENCODING_HT就从 OBJ_ENCODING_ZIPLIST 换成 OBJ_ENCODING_HT
             hashTypeConvert(o, OBJ_ENCODING_HT);
             return;
         }
@@ -226,7 +226,7 @@ int hashTypeSet(robj *o, sds field, sds value, int flags) {
             }
         }
 
-        if (!update) {
+        if (!update) { // 压缩表的编码形式下添加：依次顺序地加入field和value
             /* Push new field/value pair onto the tail of the ziplist */
             zl = ziplistPush(zl, (unsigned char*)field, sdslen(field),
                     ZIPLIST_TAIL);
@@ -473,7 +473,7 @@ void hashTypeConvertZiplist(robj *o, int enc) {
         int ret;
 
         hi = hashTypeInitIterator(o);
-        dict = dictCreate(&hashDictType, NULL);
+        dict = dictCreate(&hashDictType, NULL);  // hash数据结构的底层跟整个DB的是一样的都是dict
 
         while (hashTypeNext(hi) != C_ERR) {
             sds key, value;
@@ -666,9 +666,9 @@ void hsetCommand(client *c) {
     }
 
     if ((o = hashTypeLookupWriteOrCreate(c,c->argv[1])) == NULL) return;
-    hashTypeTryConversion(o,c->argv,2,c->argc-1);
+    hashTypeTryConversion(o,c->argv,2,c->argc-1); // 把data填进去
 
-    for (i = 2; i < c->argc; i += 2)
+    for (i = 2; i < c->argc; i += 2) // 从2开始，argv[0]是命令，argv[1]是key，argv[2]是field，argv[3]是value，步进值是2
         created += !hashTypeSet(o,c->argv[i]->ptr,c->argv[i+1]->ptr,HASH_SET_COPY);
 
     /* HMSET (deprecated) and HSET return value is different. */

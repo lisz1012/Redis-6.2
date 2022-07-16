@@ -257,7 +257,7 @@ robj *createIntsetObject(void) {
 robj *createHashObject(void) {
     unsigned char *zl = ziplistNew();
     robj *o = createObject(OBJ_HASH, zl);
-    o->encoding = OBJ_ENCODING_ZIPLIST;  // 哎？怎么是压缩表？不是OBJ_ENCODING_HT呢？压缩表得看一下
+    o->encoding = OBJ_ENCODING_ZIPLIST;  // 哎？怎么是压缩表？不是OBJ_ENCODING_HT呢？压缩表得看一下，埋个伏笔。（答案见t_hash.c line 50）
     return o;
 }
 

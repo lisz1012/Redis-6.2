@@ -56,7 +56,7 @@
  * If this length is smaller than 254 bytes, it will only consume a single
  * byte representing the length as an unsinged 8 bit integer. When the length
  * is greater than or equal to 254, it will consume 5 bytes. The first byte is
- * set to 254 (FE) to indicate a larger value is following. The remaining 4
+ * set to 254 (FE, 魔数，表明后面4字节是前面一个entry的长度，且>=254) to indicate a larger value is following. The remaining 4
  * bytes take the length of the previous entry as value.
  *
  * So practically an entry is encoded in the following way:
@@ -710,12 +710,12 @@ static inline void zipAssertValidEntry(unsigned char* zl, size_t zlbytes, unsign
 
 /* Create a new empty ziplist. */
 unsigned char *ziplistNew(void) {
-    unsigned int bytes = ZIPLIST_HEADER_SIZE+ZIPLIST_END_SIZE;
+    unsigned int bytes = ZIPLIST_HEADER_SIZE+ZIPLIST_END_SIZE; // ZIP_END = 255 = 11111111 -> 一个字节，所以ZIPLIST_END_SIZE是一个字节
     unsigned char *zl = zmalloc(bytes);
-    ZIPLIST_BYTES(zl) = intrev32ifbe(bytes);
-    ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(ZIPLIST_HEADER_SIZE);
-    ZIPLIST_LENGTH(zl) = 0;
-    zl[bytes-1] = ZIP_END;
+    ZIPLIST_BYTES(zl) = intrev32ifbe(bytes);  // 头4个字节存储了整个ziplist的长度
+    ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(ZIPLIST_HEADER_SIZE); // 紧接着Header后面的那个位置就是Tail -> 空压缩表
+    ZIPLIST_LENGTH(zl) = 0;  // Header由ZIPLIST_BYTES、ZIPLIST_TAIL_OFFSET、ZIPLIST_LENGTH构成
+    zl[bytes-1] = ZIP_END;  // 最后一个。随着元素的添加，这个指针就会往后移动，腾地方。ZIPLIST_TAIL_OFFSET 和 ZIP_END 之间的就是真实数据，两边堵，正负向索引
     return zl;
 }
 
