@@ -56,7 +56,7 @@
  * If this length is smaller than 254 bytes, it will only consume a single
  * byte representing the length as an unsinged 8 bit integer. When the length
  * is greater than or equal to 254, it will consume 5 bytes. The first byte is
- * set to 254 (FE, 魔数，表明后面4字节是前面一个entry的长度，且>=254) to indicate a larger value is following. The remaining 4
+ * set to 254 (FE, 魔数，表明后面4字节是前面一个entry的长度，且>=254.) to indicate a larger value is following. The remaining 4
  * bytes take the length of the previous entry as value.
  *
  * So practically an entry is encoded in the following way:
