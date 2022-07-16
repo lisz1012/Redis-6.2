@@ -89,7 +89,7 @@
  *      up to 2^32-1. The 6 lower bits of the first byte are not used and
  *      are set to zero.
  *      IMPORTANT: The 32 bit number is stored in big endian.
- * |11000000| - 3 bytes
+ * |11000000| - 3 bytes   意思是： 总共3字节，也就是说 "11000000"后面还有2字节
  *      Integer encoded as int16_t (2 bytes).
  * |11010000| - 5 bytes
  *      Integer encoded as int32_t (4 bytes).
@@ -200,16 +200,16 @@
                                AA BB CC DD are a 4 bytes unsigned integer
                                representing the previous entry len. */
 
-/* Different encoding/length possibilities */
-#define ZIP_STR_MASK 0xc0
+/* Different encoding/length possibilities */ // 把元数据做成编码来表达数据的特征：变长编码。
+#define ZIP_STR_MASK 0xc0           // 11000000
 #define ZIP_INT_MASK 0x30
-#define ZIP_STR_06B (0 << 6)
-#define ZIP_STR_14B (1 << 6)
-#define ZIP_STR_32B (2 << 6)
-#define ZIP_INT_16B (0xc0 | 0<<4)
-#define ZIP_INT_32B (0xc0 | 1<<4)
-#define ZIP_INT_64B (0xc0 | 2<<4)
-#define ZIP_INT_24B (0xc0 | 3<<4)
+#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp （有意思吗？）
+#define ZIP_STR_14B (1 << 6)        // 对应83行的 01pppppp
+#define ZIP_STR_32B (2 << 6)        // 对应86行的 10000000 （2 << 6 其实就是 1 << 7, 少移动一位，锱铢必较！）
+#define ZIP_INT_16B (0xc0 | 0<<4)   // 对应92行的 11000000
+#define ZIP_INT_32B (0xc0 | 1<<4)   // 对应94行的 11010000
+#define ZIP_INT_64B (0xc0 | 2<<4)   // 对应96行的 11100000
+#define ZIP_INT_24B (0xc0 | 3<<4)   // 对应98行的 11110000
 #define ZIP_INT_8B 0xfe
 
 /* 4 bit integer immediate encoding |1111xxxx| with xxxx between
