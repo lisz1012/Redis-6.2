@@ -203,9 +203,9 @@
 /* Different encoding/length possibilities */ // 把元数据做成编码来表达数据的特征：变长编码。
 #define ZIP_STR_MASK 0xc0           // 11000000
 #define ZIP_INT_MASK 0x30
-#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp （有意思吗？）
+#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp
 #define ZIP_STR_14B (1 << 6)        // 对应83行的 01pppppp
-#define ZIP_STR_32B (2 << 6)        // 对应86行的 10000000 （2 << 6 其实就是 1 << 7, 少移动一位，锱铢必较！）
+#define ZIP_STR_32B (2 << 6)        // 对应86行的 10000000 （2 << 6 其实就是 1 << 7, 少移动一位）
 #define ZIP_INT_16B (0xc0 | 0<<4)   // 对应92行的 11000000
 #define ZIP_INT_32B (0xc0 | 1<<4)   // 对应94行的 11010000
 #define ZIP_INT_64B (0xc0 | 2<<4)   // 对应96行的 11100000
