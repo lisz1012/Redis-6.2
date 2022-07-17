@@ -50,10 +50,10 @@
  * as we'll see later. In such a case the <entry-data> part is missing, and we
  * could have just:
  *
- * <prevlen> <encoding>
+ * <prevlen> <encoding> prevlen和tail指针配合使用，可以从后往前遍历；而encoding中的若干字节和若干位，则包含了其后面的entry真实数据的长度信息，方便正向遍历
  *
  * The length of the previous entry, <prevlen>, is encoded in the following way:
- * If this length is smaller than 254 bytes, it will only consume a single
+ * If this length is smaller than 254（11111110 or 0xFE） bytes, it will only consume a single
  * byte representing the length as an unsinged 8 bit integer. When the length
  * is greater than or equal to 254, it will consume 5 bytes. The first byte is
  * set to 254 (FE, 魔数，表明后面4字节是前面一个entry的长度，且>=254.) to indicate a larger value is following. The remaining 4
@@ -61,7 +61,7 @@
  *
  * So practically an entry is encoded in the following way:
  *
- * <prevlen from 0 to 253> <encoding> <entry>
+ * <prevlen from 0 to 253> <encoding> <entry>   0表示前面已经没有entry了
  *
  * Or alternatively if the previous entry length is greater than 253 bytes
  * the following encoding is used:
@@ -77,19 +77,19 @@
  * different types and encodings is as follows. The first byte is always enough
  * to determine the kind of entry.
  *
- * |00pppppp| - 1 byte
+ * |00pppppp| - 1 byte 意思是： encoding部分总共1字节，当前这个字节的后6位(1~63个字节的长度)表示的就是跟在本字节后面的string数据的长度。方便正向遍历
  *      String value with length less than or equal to 63 bytes (6 bits).
  *      "pppppp" represents the unsigned 6 bit length.
- * |01pppppp|qqqqqqqq| - 2 bytes
+ * |01pppppp|qqqqqqqq| - 2 bytes 意思是： encoding部分总共2字节，当前这个字节的后6位+下一个字节表示的就是2字节之后开始的string数据的长度。方便正向遍历
  *      String value with length less than or equal to 16383 bytes (14 bits).
  *      IMPORTANT: The 14 bit number is stored in big endian.
- * |10000000|qqqqqqqq|rrrrrrrr|ssssssss|tttttttt| - 5 bytes
+ * |10000000|qqqqqqqq|rrrrrrrr|ssssssss|tttttttt| - 5 bytes   length: 16384 ～ (2^32 - 1)
  *      String value with length greater than or equal to 16384 bytes.
  *      Only the 4 bytes following the first byte represents the length
  *      up to 2^32-1. The 6 lower bits of the first byte are not used and
  *      are set to zero.
  *      IMPORTANT: The 32 bit number is stored in big endian.
- * |11000000| - 3 bytes   意思是： 总共3字节，也就是说 "11000000"后面还有2字节
+ * |11000000| - 3 bytes   意思是： 总共3字节，也就是说 "11000000"后面的entry int data有2字节。00、01、10打头的都属于对string类型的编码；11开头，就告诉使用者：后面是个int，究竟用多少字节来表示它呢？看本字节的后6位
  *      Integer encoded as int16_t (2 bytes).
  * |11010000| - 5 bytes
  *      Integer encoded as int32_t (4 bytes).
@@ -107,7 +107,7 @@
  *
  * Like for the ziplist header, all the integers are represented in little
  * endian byte order, even when this code is compiled in big endian systems.
- *
+ * 看出来为什么编解码、加解压...属于CPU密集型操作了没？数据可能没多少字节，但是每一位都有其含义，CPU几乎要检查每一个二进制位！
  * EXAMPLES OF ACTUAL ZIPLISTS
  * ===========================
  *
@@ -201,12 +201,12 @@
                                representing the previous entry len. */
 
 /* Different encoding/length possibilities */ // 把元数据做成编码来表达数据的特征：变长编码。
-#define ZIP_STR_MASK 0xc0           // 11000000
+#define ZIP_STR_MASK 0xc0           // 11000000  为了跟encoding那个字节做&运算，就可以知道ziplist元素是STR或INT两大类中的哪一种，进而也知道属于那一类长度的STR
 #define ZIP_INT_MASK 0x30
-#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp
+#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp  String是字节数组，原始数据，3种。面对不同长度的字节数组做动态编码匹配
 #define ZIP_STR_14B (1 << 6)        // 对应83行的 01pppppp
 #define ZIP_STR_32B (2 << 6)        // 对应86行的 10000000 （2 << 6 其实就是 1 << 7, 少移动一位）
-#define ZIP_INT_16B (0xc0 | 0<<4)   // 对应92行的 11000000
+#define ZIP_INT_16B (0xc0 | 0<<4)   // 对应92行的 11000000  16B、32B、64B、24B分别用2、4、8、3个字节表示整数，尤其是对大的数字做优化，省空间
 #define ZIP_INT_32B (0xc0 | 1<<4)   // 对应94行的 11010000
 #define ZIP_INT_64B (0xc0 | 2<<4)   // 对应96行的 11100000
 #define ZIP_INT_24B (0xc0 | 3<<4)   // 对应98行的 11110000
@@ -276,8 +276,8 @@ int ziplistSafeToAdd(unsigned char* zl, size_t add) {
         return 0;
     return 1;
 }
-
-
+// 以结构体或者对象属性的形式，清晰地知道entry的细节、p指针所指向的数据。
+// zlentry之间无关，ziplist可以和快表组合用，最终表达OBJ_LIST的语意。entry之间有k-v关联关系，表示hash的语义，步进为2；有分值权重关系：element-score，步进也为2。有序关系：单entry有序、基于element-score的score有序
 /* We use this function to receive information about a ziplist entry.
  * Note that this is not how the data is actually encoded, is just what we
  * get filled by a function in order to operate more easily. */
