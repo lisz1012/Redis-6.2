@@ -35,7 +35,7 @@
 typedef struct intset {
     uint32_t encoding;
     uint32_t length;
-    int8_t contents[];
+    int8_t contents[];  // 没给出大小就是柔性数组，一上来是空的并不算空间
 } intset;
 
 intset *intsetNew(void);
