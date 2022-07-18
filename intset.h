@@ -32,10 +32,10 @@
 #define __INTSET_H
 #include <stdint.h>
 
-typedef struct intset {
+typedef struct intset { // 能用int就用int，省空间！！
     uint32_t encoding;
     uint32_t length;
-    int8_t contents[];  // 没给出大小就是柔性数组，一上来是空的并不算空间
+    int8_t contents[];  // 没给出大小就是柔性数组，一上来是空的并不算空间。判断重复，要遍历一遍。ziplist是变长，数组是定长，元素可以基于下标定位。
 } intset;
 
 intset *intsetNew(void);
