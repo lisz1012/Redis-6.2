@@ -46,7 +46,7 @@ typedef char *sds;
  * However is here to document the layout of type 5 SDS strings. */
 struct __attribute__ ((__packed__)) sdshdr5 { // "hdr"是header的意思
     unsigned char flags; /* 3 lsb of type, and 5 msb of string length 左三位是类型，后五位是buffer的宽度：最长32字节，存取小数据的时候元数据也尽量小 --> 动态 */
-    char buf[];  // 弹性数组
+    char buf[];  // 弹性数组 buf[-1]就是flags，之后可能会这么取其值
 };
 struct __attribute__ ((__packed__)) sdshdr8 { // 3 字节，char buf[]不算
     uint8_t len; /* used  1 byte， buffer最大存放256字节 */

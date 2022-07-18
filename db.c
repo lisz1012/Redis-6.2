@@ -1443,7 +1443,7 @@ void deleteExpiredKeyAndPropagate(redisDb *db, robj *keyobj) {
     mstime_t expire_latency;
     latencyStartMonitor(expire_latency);
     if (server.lazyfree_lazy_expire)
-        dbAsyncDelete(db,keyobj);
+        dbAsyncDelete(db,keyobj); // 有可能是异步清理过期的key
     else
         dbSyncDelete(db,keyobj);
     latencyEndMonitor(expire_latency);

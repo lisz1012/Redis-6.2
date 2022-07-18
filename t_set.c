@@ -305,7 +305,7 @@ void saddCommand(client *c) {
     int j, added = 0;
 
     set = lookupKeyWrite(c->db,c->argv[1]);
-    if (checkType(c,set,OBJ_SET)) return;
+    if (checkType(c,set,OBJ_SET)) return; // checkType 返回1表示type有问题，不是期望的OBJ_SET
     
     if (set == NULL) {
         set = setTypeCreate(c->argv[2]->ptr);

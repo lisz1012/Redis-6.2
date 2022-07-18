@@ -41,13 +41,13 @@ void hashTypeTryConversion(robj *o, robj **argv, int start, int end) {
     int i;
     size_t sum = 0;
 
-    if (o->encoding != OBJ_ENCODING_ZIPLIST) return;
+    if (o->encoding != OBJ_ENCODING_ZIPLIST) return;  // 已经是OBJ_ENCODING_HT了，转化过了，直接返回
 
     for (i = start; i <= end; i++) {
         if (!sdsEncodedObject(argv[i]))
             continue;
-        size_t len = sdslen(argv[i]->ptr);
-        if (len > server.hash_max_ziplist_value) { // 长度大于OBJ_ENCODING_HT就从 OBJ_ENCODING_ZIPLIST 换成 OBJ_ENCODING_HT
+        size_t len = sdslen(argv[i]->ptr);      // i的步进值为1，所以当任何一个field或者value长度超过hash_max_ziplist_value（64 bytes）的时候都会触发ziplist-> dict的转化
+        if (len > server.hash_max_ziplist_value) { // value长度大于hash-max-ziplist-value个字节，就从 OBJ_ENCODING_ZIPLIST 换成 OBJ_ENCODING_HT。server.hash_max_ziplist_value 默认为64，详见config.c 2536行。entry个数大于hash-max-ziplist-entries的设置，也会触发压缩表想哈希表的转化
             hashTypeConvert(o, OBJ_ENCODING_HT);
             return;
         }
@@ -233,7 +233,7 @@ int hashTypeSet(robj *o, sds field, sds value, int flags) {
             zl = ziplistPush(zl, (unsigned char*)value, sdslen(value),
                     ZIPLIST_TAIL);
         }
-        o->ptr = zl;
+        o->ptr = zl;   // 以上操作之后o->ptr所指向的ziplist中的真实数据条目可能变多了，所以在下面检查条目数，可能触发hashTypeConvert
 
         /* Check if the ziplist needs to be converted to a hash table */
         if (hashTypeLength(o) > server.hash_max_ziplist_entries)
@@ -314,7 +314,7 @@ unsigned long hashTypeLength(const robj *o) {
     unsigned long length = ULONG_MAX;
 
     if (o->encoding == OBJ_ENCODING_ZIPLIST) {
-        length = ziplistLen(o->ptr) / 2;
+        length = ziplistLen(o->ptr) / 2;  // hash有field和value，两个ziplist的entry算作hash中的一个长度
     } else if (o->encoding == OBJ_ENCODING_HT) {
         length = dictSize((const dict*)o->ptr);
     } else {
@@ -455,7 +455,7 @@ robj *hashTypeLookupWriteOrCreate(client *c, robj *key) {
     if (checkType(c,o,OBJ_HASH)) return NULL;
 
     if (o == NULL) {
-        o = createHashObject();
+        o = createHashObject();  // 里面一上来是ziplist编码
         dbAdd(c->db,key,o);
     }
     return o;
@@ -488,9 +488,9 @@ void hashTypeConvertZiplist(robj *o, int enc) {
             }
         }
         hashTypeReleaseIterator(hi);
-        zfree(o->ptr);
+        zfree(o->ptr);       // 把原来指向ziplist的指针废弃掉
         o->encoding = OBJ_ENCODING_HT;
-        o->ptr = dict;
+        o->ptr = dict;           // 把真实数据的指针指向新的dict的数据结构
     } else {
         serverPanic("Unknown hash encoding");
     }
@@ -660,16 +660,16 @@ void hsetCommand(client *c) {
     int i, created = 0;
     robj *o;
 
-    if ((c->argc % 2) == 1) {
+    if ((c->argc % 2) == 1) { // K-V pair
         addReplyErrorFormat(c,"wrong number of arguments for '%s' command",c->cmd->name);
         return;
     }
 
     if ((o = hashTypeLookupWriteOrCreate(c,c->argv[1])) == NULL) return;
-    hashTypeTryConversion(o,c->argv,2,c->argc-1); // 把data填进去
+    hashTypeTryConversion(o,c->argv,2,c->argc-1); // 把data填进去。可能会因为某个entry的field或者value长度太大而触发hashTypeConvert，由压缩表转换成哈希表
 
     for (i = 2; i < c->argc; i += 2) // 从2开始，argv[0]是命令，argv[1]是key，argv[2]是field，argv[3]是value，步进值是2
-        created += !hashTypeSet(o,c->argv[i]->ptr,c->argv[i+1]->ptr,HASH_SET_COPY);
+        created += !hashTypeSet(o,c->argv[i]->ptr,c->argv[i+1]->ptr,HASH_SET_COPY); // 可能会因为个数太多（超过512）而触发hashTypeConvert，由压缩表转换成哈希表
 
     /* HMSET (deprecated) and HSET return value is different. */
     char *cmdname = c->argv[0]->ptr;
