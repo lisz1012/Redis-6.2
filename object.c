@@ -39,7 +39,7 @@
 /* ===================== Creation and parsing of objects ==================== */
 
 robj *createObject(int type, void *ptr) { // 创建出来的是什么类型，取决于传进来的type 4个字节的int，其实只用四位。*ptr是指向真实数据的指针
-    robj *o = zmalloc(sizeof(*o));
+    robj *o = zmalloc(sizeof(*o));  // robj大小是16个字节
     o->type = type;
     o->encoding = OBJ_ENCODING_RAW;
     o->ptr = ptr;

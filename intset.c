@@ -96,7 +96,7 @@ static void _intsetSet(intset *is, int pos, int64_t value) {
 
 /* Create an empty intset. */
 intset *intsetNew(void) {
-    intset *is = zmalloc(sizeof(intset));
+    intset *is = zmalloc(sizeof(intset)); // 一开始是8字节， int8_t contents[] 不算在其中
     is->encoding = intrev32ifbe(INTSET_ENC_INT16);
     is->length = 0;
     return is;

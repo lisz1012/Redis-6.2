@@ -32,7 +32,7 @@
 #define __INTSET_H
 #include <stdint.h>
 
-typedef struct intset { // 能用int就用int，省空间！！
+typedef struct intset { // 能用int就用int，无论是在内存还是磁序列化的时候，int比string更省空间！！趋向于紧凑的数据结构
     uint32_t encoding;
     uint32_t length;
     int8_t contents[];  // 没给出大小就是柔性数组，一上来是空的并不算空间。判断重复，要遍历一遍。ziplist是变长，数组是定长，元素可以基于下标定位。
