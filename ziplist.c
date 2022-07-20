@@ -203,7 +203,7 @@
 /* Different encoding/length possibilities */ // 把元数据做成编码来表达数据的特征：变长编码。
 #define ZIP_STR_MASK 0xc0           // 11000000  为了跟encoding那个字节做&运算，就可以知道ziplist元素是STR或INT两大类中的哪一种，进而也知道属于那一类长度的STR
 #define ZIP_INT_MASK 0x30
-#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp  String是字节数组，原始数据，3种。面对不同长度的字节数组做动态编码匹配.
+#define ZIP_STR_06B (0 << 6)        // 对应80行的 00pppppp  String是字节数组，原始数据，3种。面对不同长度的字节数组做动态编码匹配
 #define ZIP_STR_14B (1 << 6)        // 对应83行的 01pppppp
 #define ZIP_STR_32B (2 << 6)        // 对应86行的 10000000 （2 << 6 其实就是 1 << 7, 少移动一位）
 #define ZIP_INT_16B (0xc0 | 0<<4)   // 对应92行的 11000000  16B、32B、64B、24B分别用2、4、8、3个字节表示整数，尤其是对大的数字做优化，省空间
