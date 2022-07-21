@@ -233,7 +233,7 @@ robj *createQuicklistObject(void) {
     return o;
 }
 
-robj *createZiplistObject(void) {
+robj *createZiplistObject(void) {  // 不直接创建
     unsigned char *zl = ziplistNew();
     robj *o = createObject(OBJ_LIST,zl);
     o->encoding = OBJ_ENCODING_ZIPLIST; // 编码跟上面的快表不一样，但现在不用了

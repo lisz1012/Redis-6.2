@@ -241,7 +241,7 @@ void pushGenericCommand(client *c, int where, int xx) {
             return;
         }
 
-        lobj = createQuicklistObject();
+        lobj = createQuicklistObject();  // 没有直接用到ziplist，因为quickList底层用了zipList，把多个quicklist的元素压成一个ziplist，连续放在内存中，作为quicklist的一个node。
         quicklistSetOptions(lobj->ptr, server.list_max_ziplist_size,
                             server.list_compress_depth);
         dbAdd(c->db,c->argv[1],lobj);
@@ -260,7 +260,7 @@ void pushGenericCommand(client *c, int where, int xx) {
 }
 
 /* LPUSH <key> <element> [<element> ...] */
-void lpushCommand(client *c) {
+void lpushCommand(client *c) { // 各种方式的push底层的函数调的都一样，但是参数不同
     pushGenericCommand(c,LIST_HEAD,0);
 }
 
