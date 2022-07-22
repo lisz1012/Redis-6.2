@@ -408,11 +408,11 @@ REDIS_STATIC void _quicklistInsertNodeAfter(quicklist *quicklist,
 REDIS_STATIC int
 _quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,
                                                const int fill) {
-    if (fill >= 0)
+    if (fill >= 0) // fill初始值为-2，这里就不成立
         return 0;
 
-    size_t offset = (-fill) - 1;
-    if (offset < (sizeof(optimization_level) / sizeof(*optimization_level))) {
+    size_t offset = (-fill) - 1; // 从下面的optimization_level数组有5个元素推断出：offset=0-4，则fill的取值为-1～-5，分别对应了optimization_level中的5个值
+    if (offset < (sizeof(optimization_level) / sizeof(*optimization_level))) { // offset = 0 ～ length- 1， 并未数组越界
         if (sz <= optimization_level[offset]) {
             return 1;
         } else {
