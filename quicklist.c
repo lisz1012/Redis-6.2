@@ -427,11 +427,11 @@ _quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,
 
 REDIS_STATIC int _quicklistNodeAllowInsert(const quicklistNode *node,
                                            const int fill, const size_t sz) {
-    if (unlikely(!node))
+    if (unlikely(!node)) // 节点不存在，直接返回
         return 0;
 
     int ziplist_overhead;
-    /* size of previous offset */
+    /* size of previous offset 就是ziplist中的每个entry的prelen部分，前一个元素长度小于254，占一个字节，否则先来个0xFE，再占用4个字节。见ziplist.c*/
     if (sz < 254)
         ziplist_overhead = 1;
     else
@@ -497,7 +497,7 @@ int quicklistPushHead(quicklist *quicklist, void *value, size_t sz) {
         quicklist->head->zl =
             ziplistPush(quicklist->head->zl, value, sz, ZIPLIST_HEAD);
         quicklistNodeUpdateSz(quicklist->head);
-    } else {
+    } else { // 要不要新建节点
         quicklistNode *node = quicklistCreateNode();
         node->zl = ziplistPush(ziplistNew(), value, sz, ZIPLIST_HEAD);
 

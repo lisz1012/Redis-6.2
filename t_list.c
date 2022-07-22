@@ -247,7 +247,7 @@ void pushGenericCommand(client *c, int where, int xx) {
         dbAdd(c->db,c->argv[1],lobj);
     }
 
-    for (j = 2; j < c->argc; j++) {
+    for (j = 2; j < c->argc; j++) { // 步进是1，链表是单元素
         listTypePush(lobj,c->argv[j],where);
         server.dirty++;
     }
