@@ -48,7 +48,7 @@ typedef struct quicklistNode {
     struct quicklistNode *next;
     unsigned char *zl;
     unsigned int sz;             /* ziplist size in bytes */
-    unsigned int count : 16;     /* count of items in ziplist 随机访问的时候就用这个count判断当前Node是否有被访问的index的元素*/
+    unsigned int count : 16;     /* count of items in ziplist 随机访问的时候就用这个count判断当前Node是否有被访问的index的元素 */
     unsigned int encoding : 2;   /* RAW==1 or LZF==2 */
     unsigned int container : 2;  /* NONE==1 or ZIPLIST==2 */
     unsigned int recompress : 1; /* was this node previous compressed? */
