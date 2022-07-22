@@ -55,7 +55,7 @@ static const size_t optimization_level[] = {4096, 8192, 16384, 32768, 65536};
  * This is used only if we're limited by record count. when we're limited by
  * size, the maximum limit is bigger, but still safe.
  * 8k is a recommended / default size limit */
-#define SIZE_SAFETY_LIMIT 8192
+#define SIZE_SAFETY_LIMIT 8192  // ziplist的到校大于8192字节，则会单独一个元素成为一个ziplist
 
 /* Minimum ziplist size in bytes for attempting compression. */
 #define MIN_COMPRESS_BYTES 48
@@ -406,15 +406,15 @@ REDIS_STATIC void _quicklistInsertNodeAfter(quicklist *quicklist,
 }
 
 REDIS_STATIC int
-_quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,
-                                               const int fill) {
+_quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,  // 被估算的新的快表node的大小，以字节为单位
+                                               const int fill) { // fill跟sz匹配，则可以被优化
     if (fill >= 0) // fill初始值为-2，这里就不成立
         return 0;
 
     size_t offset = (-fill) - 1; // 从下面的optimization_level数组有5个元素推断出：offset=0-4，则fill的取值为-1～-5，分别对应了optimization_level中的5个值
     if (offset < (sizeof(optimization_level) / sizeof(*optimization_level))) { // offset = 0 ～ length- 1， 并未数组越界
         if (sz <= optimization_level[offset]) {
-            return 1;
+            return 1;  // 返回1代表没问题
         } else {
             return 0;
         }
@@ -426,11 +426,11 @@ _quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,
 #define sizeMeetsSafetyLimit(sz) ((sz) <= SIZE_SAFETY_LIMIT)
 
 REDIS_STATIC int _quicklistNodeAllowInsert(const quicklistNode *node,
-                                           const int fill, const size_t sz) {
-    if (unlikely(!node)) // 节点不存在，直接返回
+                                           const int fill, const size_t sz) { // sz是用户插入List的当前key的元素的大小
+    if (unlikely(!node)) // 节点不存在，直接返回，然后需要创建新的节点作为head
         return 0;
 
-    int ziplist_overhead;
+    int ziplist_overhead;  // 要把用户传进来的一个sz大小的value插入压表，所需要的额外开销
     /* size of previous offset 就是ziplist中的每个entry的prelen部分，前一个元素长度小于254，占一个字节，否则先来个0xFE，再占用4个字节。见ziplist.c*/
     if (sz < 254)
         ziplist_overhead = 1;
@@ -445,15 +445,15 @@ REDIS_STATIC int _quicklistNodeAllowInsert(const quicklistNode *node,
     else
         ziplist_overhead += 5;
 
-    /* new_sz overestimates if 'sz' encodes to an integer type */
-    unsigned int new_sz = node->sz + sz + ziplist_overhead;
-    if (likely(_quicklistNodeSizeMeetsOptimizationRequirement(new_sz, fill)))
+    /* new_sz overestimates if 'sz' encodes to an integer type 也就是说，这里是按照ziplist.c中的字符串编码的情况，比如00pppppp来估算的*/
+    unsigned int new_sz = node->sz + sz + ziplist_overhead; // 估算新加进一个value之后这个node的ziplist膨胀之后，整个这个快表node新的size，以字节为单位
+    if (likely(_quicklistNodeSizeMeetsOptimizationRequirement(new_sz, fill))) // fill>0表示 n个entry
         return 1;
     /* when we return 1 above we know that the limit is a size limit (which is
      * safe, see comments next to optimization_level and SIZE_SAFETY_LIMIT) */
-    else if (!sizeMeetsSafetyLimit(new_sz))
+    else if (!sizeMeetsSafetyLimit(new_sz)) // new_sz大小超越安全界限(8k)则返回不允许插入 -> 0
         return 0;
-    else if ((int)node->count < fill)
+    else if ((int)node->count < fill) // fill为正数的情况，此时他就限制了快表Node中的压表内最多有多少个元素，突破了这个限制下一行就会不让插入
         return 1;
     else
         return 0;
@@ -489,7 +489,7 @@ REDIS_STATIC int _quicklistNodeAllowMerge(const quicklistNode *a,
  *
  * Returns 0 if used existing head.
  * Returns 1 if new head created. */
-int quicklistPushHead(quicklist *quicklist, void *value, size_t sz) {
+int quicklistPushHead(quicklist *quicklist, void *value, size_t sz) { // sz是用户插入List的当前key的元素的大小
     quicklistNode *orig_head = quicklist->head;
     assert(sz < UINT32_MAX); /* TODO: add support for quicklist nodes that are sds encoded (not zipped) */
     if (likely(
@@ -1435,7 +1435,7 @@ int quicklistPop(quicklist *quicklist, int where, unsigned char **data,
 }
 
 /* Wrapper to allow argument-based switching between HEAD/TAIL pop */
-void quicklistPush(quicklist *quicklist, void *value, const size_t sz,
+void quicklistPush(quicklist *quicklist, void *value, const size_t sz, // 用户输入的value（字符串/int）的长度
                    int where) {
     if (where == QUICKLIST_HEAD) {
         quicklistPushHead(quicklist, value, sz);

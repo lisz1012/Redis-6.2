@@ -107,7 +107,7 @@ typedef struct quicklist {
     quicklistNode *tail;
     unsigned long count;        /* total count of all entries in all ziplists */
     unsigned long len;          /* number of quicklistNodes */
-    int fill : QL_FILL_BITS;              /* fill factor for individual nodes， 控制每个 quicklistNode 的容积 */
+    int fill : QL_FILL_BITS;              /* fill factor for individual nodes， 控制每个 quicklistNode 的容积. QL_FILL_BITS = 16. 2^16 = 65536 */
     unsigned int compress : QL_COMP_BITS; /* depth of end nodes not to compress;0=off */
     unsigned int bookmark_count: QL_BM_BITS;
     quicklistBookmark bookmarks[];

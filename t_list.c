@@ -48,7 +48,7 @@ void listTypePush(robj *subject, robj *value, int where) {
             ll2string(buf, 32, (long)value->ptr);
             quicklistPush(subject->ptr, buf, strlen(buf), pos);
         } else {
-            quicklistPush(subject->ptr, value->ptr, sdslen(value->ptr), pos);
+            quicklistPush(subject->ptr, value->ptr, sdslen(value->ptr), pos);  // 快表和用户输入的value要相遇了
         }
     } else {
         serverPanic("Unknown list encoding");
@@ -233,9 +233,9 @@ void pushGenericCommand(client *c, int where, int xx) {
         }
     }
 
-    robj *lobj = lookupKeyWrite(c->db, c->argv[1]);
+    robj *lobj = lookupKeyWrite(c->db, c->argv[1]); // argv[0]是命令，argv[1]是key
     if (checkType(c,lobj,OBJ_LIST)) return;
-    if (!lobj) {
+    if (!lobj) { // 没找到就新建一个快表结构
         if (xx) {
             addReply(c, shared.czero);
             return;
@@ -248,7 +248,7 @@ void pushGenericCommand(client *c, int where, int xx) {
     }
 
     for (j = 2; j < c->argc; j++) { // 步进是1，链表是单元素
-        listTypePush(lobj,c->argv[j],where);
+        listTypePush(lobj,c->argv[j],where); // 把用户要插入的每一个值放入快表
         server.dirty++;
     }
 
