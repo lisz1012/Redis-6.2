@@ -408,7 +408,7 @@ REDIS_STATIC void _quicklistInsertNodeAfter(quicklist *quicklist,
 REDIS_STATIC int
 _quicklistNodeSizeMeetsOptimizationRequirement(const size_t sz,  // 被估算的新的快表node的大小，以字节为单位
                                                const int fill) { // fill跟sz匹配，则可以被优化
-    if (fill >= 0) // fill初始值为-2，这里就不成立
+    if (fill >= 0) // fill初始值为-2，这里就不成立。 fill == 0 则上层的_quicklistNodeAllowInsert会返回0，不允许插入，其后面的代码会走创建新（quickListNode）压表的逻辑，见495行
         return 0;
 
     size_t offset = (-fill) - 1; // 从下面的optimization_level数组有5个元素推断出：offset=0-4，则fill的取值为-1～-5，分别对应了optimization_level中的5个值
