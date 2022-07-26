@@ -265,7 +265,7 @@ robj *createZsetObject(void) { // 有序集合可以是跳表实现，也可以�
     zset *zs = zmalloc(sizeof(*zs));
     robj *o;
 
-    zs->dict = dictCreate(&zsetDictType,NULL); // 多维护一个字典哈希表，同时保证有序性和随机读取，减少遍历
+    zs->dict = dictCreate(&zsetDictType,NULL); // 多维护一个字典哈希表，同时保证有序性和根据分值随机读取的效率，减少遍历
     zs->zsl = zslCreate();
     o = createObject(OBJ_ZSET,zs);
     o->encoding = OBJ_ENCODING_SKIPLIST;

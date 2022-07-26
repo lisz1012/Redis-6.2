@@ -220,7 +220,7 @@ int dictRehash(dict *d, int n) {
         assert(d->ht[0].size > (unsigned long)d->rehashidx);
         while(d->ht[0].table[d->rehashidx] == NULL) { // "table"是哈希表中的那个数组
             d->rehashidx++;
-            if (--empty_visits == 0) return 1; // 在数组中最多往后数10个，看有没有遇见非空链表，一直没遇见，也就强制直接返回，如果遇见了，就计算新的哈希值，重新哈希
+            if (--empty_visits == 0) return 1; // 在数组中最多往后数10（n=1时）个，看有没有遇见非空链表，一直没遇见，也就强制直接返回，如果遇见了，就计算新的哈希值，重新哈希
         }
         de = d->ht[0].table[d->rehashidx]; // 拿出非空的这个单链表
         /* Move all the keys in this bucket from the old to the new hash HT */
@@ -230,7 +230,7 @@ int dictRehash(dict *d, int n) {
             nextde = de->next;
             /* Get the index in the new hash table */
             h = dictHashKey(d, de->key) & d->ht[1].sizemask;
-            de->next = d->ht[1].table[h];
+            de->next = d->ht[1].table[h]; // 插入在新哈希表ht[1]数组的h位置的那个链表的头部
             d->ht[1].table[h] = de;
             d->ht[0].used--;
             d->ht[1].used++;

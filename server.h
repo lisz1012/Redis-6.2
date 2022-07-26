@@ -999,13 +999,13 @@ struct sharedObjectsStruct {
 
 /* ZSETs use a specialized version of Skiplists */
 typedef struct zskiplistNode {
-    sds ele;
+    sds ele; // 即便是数值也是字典序，做减法，不按别的顺序了
     double score;
     struct zskiplistNode *backward;
     struct zskiplistLevel {
         struct zskiplistNode *forward;
         unsigned long span;
-    } level[];
+    } level[];  // 这里是弹性的，创建的时候临时告诉Node是多少层的.
 } zskiplistNode;
 
 typedef struct zskiplist {
