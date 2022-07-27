@@ -1005,7 +1005,7 @@ unsigned char *zzlFind(unsigned char *zl, sds ele, double *score) {
     unsigned char *eptr = ziplistIndex(zl,0), *sptr;
 
     while (eptr != NULL) {
-        sptr = ziplistNext(zl,eptr);
+        sptr = ziplistNext(zl,eptr); // eptr是element pointer; sptr是score pointer
         serverAssert(sptr != NULL);
 
         if (ziplistCompare(eptr,(unsigned char*)ele,sdslen(ele))) {

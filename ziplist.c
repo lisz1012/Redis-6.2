@@ -1327,7 +1327,7 @@ unsigned int ziplistCompare(unsigned char *p, unsigned char *sstr, unsigned int 
     if (p[0] == ZIP_END) return 0;
 
     zipEntry(p, &entry); /* no need for "safe" variant since the input pointer was validated by the function that returned it. */
-    if (ZIP_IS_STR(entry.encoding)) {
+    if (ZIP_IS_STR(entry.encoding)) { // 如果是字符串，则一看长度不一样就返回0
         /* Raw compare */
         if (entry.len == slen) {
             return memcmp(p+entry.headersize,sstr,slen) == 0;
@@ -1337,7 +1337,7 @@ unsigned int ziplistCompare(unsigned char *p, unsigned char *sstr, unsigned int 
     } else {
         /* Try to compare encoded values. Don't compare encoding because
          * different implementations may encoded integers differently. */
-        if (zipTryEncoding(sstr,slen,&sval,&sencoding)) {
+        if (zipTryEncoding(sstr,slen,&sval,&sencoding)) { // 看看能不能把string转成long
           zval = zipLoadInteger(p+entry.headersize,entry.encoding);
           return zval == sval;
         }
