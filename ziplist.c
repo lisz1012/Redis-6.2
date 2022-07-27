@@ -1243,7 +1243,7 @@ unsigned int ziplistGet(unsigned char *p, unsigned char **sstr, unsigned int *sl
     if (sstr) *sstr = NULL;
 
     zipEntry(p, &entry); /* no need for "safe" variant since the input pointer was validated by the function that returned it. */
-    if (ZIP_IS_STR(entry.encoding)) {
+    if (ZIP_IS_STR(entry.encoding)) { // 可能是string或者int
         if (sstr) {
             *slen = entry.len;
             *sstr = p+entry.headersize;

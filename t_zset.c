@@ -736,9 +736,9 @@ double zzlGetScore(unsigned char *sptr) {
     serverAssert(sptr != NULL);
     serverAssert(ziplistGet(sptr,&vstr,&vlen,&vlong));
 
-    if (vstr) {
+    if (vstr) { // string的情况下，&vstr 被填充上值了
         score = zzlStrtod(vstr,vlen);
-    } else {
+    } else {    // int的情况下，&vlong 被填充上值了
         score = vlong;
     }
 
