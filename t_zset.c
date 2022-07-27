@@ -1008,9 +1008,9 @@ unsigned char *zzlFind(unsigned char *zl, sds ele, double *score) {
         sptr = ziplistNext(zl,eptr); // eptr是element pointer; sptr是score pointer
         serverAssert(sptr != NULL);
 
-        if (ziplistCompare(eptr,(unsigned char*)ele,sdslen(ele))) {
+        if (ziplistCompare(eptr,(unsigned char*)ele,sdslen(ele))) { // 相等返回true，然后返回压缩表中元素的指针
             /* Matching element, pull out score. */
-            if (score != NULL) *score = zzlGetScore(sptr);
+            if (score != NULL) *score = zzlGetScore(sptr); // 指针参数实现多个返回值
             return eptr;
         }
 

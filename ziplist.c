@@ -1339,7 +1339,7 @@ unsigned int ziplistCompare(unsigned char *p, unsigned char *sstr, unsigned int 
          * different implementations may encoded integers differently. */
         if (zipTryEncoding(sstr,slen,&sval,&sencoding)) { // 看看能不能把string转成long
           zval = zipLoadInteger(p+entry.headersize,entry.encoding);
-          return zval == sval;
+          return zval == sval;  // 看看原本就在压缩表里的元素zval在编码之后等不等于传进来要寻找的值sval
         }
     }
     return 0;
