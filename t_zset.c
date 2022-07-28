@@ -168,7 +168,7 @@ zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
         update[i]->level[i].forward = x;
 
         /* update span covered by update[i] as x is inserted here */
-        x->level[i].span = update[i]->level[i].span - (rank[0] - rank[i]);
+        x->level[i].span = update[i]->level[i].span - (rank[0] - rank[i]);  // (rank[0] - rank[i]）是插入位置（rank[0]）向上作垂线，与update[i]->level[i].forward相交，所截的左边的线段，x->level[i].span是矢量update[i]->level[i].forward的长度
         update[i]->level[i].span = (rank[0] - rank[i]) + 1;
     }
 
