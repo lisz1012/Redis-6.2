@@ -131,7 +131,7 @@ int zslRandomLevel(void) {
  * of the passed SDS string 'ele'. */
 zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
     zskiplistNode *update[ZSKIPLIST_MAXLEVEL], *x;
-    unsigned int rank[ZSKIPLIST_MAXLEVEL];
+    unsigned int rank[ZSKIPLIST_MAXLEVEL]; // rank数组是插入新节点时，遍历到的各个节点的索引值（位置），越往下层遍历到的就越大
     int i, level;
 
     serverAssert(!isnan(score));
