@@ -136,18 +136,18 @@ zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
 
     serverAssert(!isnan(score));
     x = zsl->header;
-    for (i = zsl->level-1; i >= 0; i--) {
+    for (i = zsl->level-1; i >= 0; i--) {  // 从上向下跳层，找插入点
         /* store rank that is crossed to reach the insert position */
-        rank[i] = i == (zsl->level-1) ? 0 : rank[i+1];
+        rank[i] = i == (zsl->level-1) ? 0 : rank[i+1]; // 从上面的一层copy下rank的值，作为本层的rank初始值，然后做更细粒度的扫描，因为现在离目标位置更近了
         while (x->level[i].forward &&
                 (x->level[i].forward->score < score ||
                     (x->level[i].forward->score == score &&
-                    sdscmp(x->level[i].forward->ele,ele) < 0)))
+                    sdscmp(x->level[i].forward->ele,ele) < 0)))  // 在 i 层一层之内。层层找应该放在哪里，先比分值，再比元素字符串
         {
-            rank[i] += x->level[i].span;
+            rank[i] += x->level[i].span;    // 累加，跟141行呼应，i越小rank[i]越大, 各层在前一层的基础上累加
             x = x->level[i].forward;
         }
-        update[i] = x;
+        update[i] = x;   // 最后退出for循环之后update[i]便是要插入的位置
     }
     /* we assume the element is not already inside, since we allow duplicated
      * scores, reinserting the same element should never happen since the
@@ -1015,7 +1015,7 @@ unsigned char *zzlFind(unsigned char *zl, sds ele, double *score) {
         }
 
         /* Move to next element. */
-        eptr = ziplistNext(zl,sptr);
+        eptr = ziplistNext(zl,sptr); // 循环开始的时候还会移动sptr，因为在zset中，既要存元素，又要存它的score
     }
     return NULL;
 }
@@ -1438,7 +1438,7 @@ int zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, dou
             return 1;
         } else if (!xx) {
             ele = sdsdup(ele);
-            znode = zslInsert(zs->zsl,score,ele);
+            znode = zslInsert(zs->zsl,score,ele); // 把元素封装成znode，插入跳表，并把这个znode的score放到了下面这一行的字典里
             serverAssert(dictAdd(zs->dict,ele,&znode->score) == DICT_OK);
             *out_flags |= ZADD_OUT_ADDED;
             if (newscore) *newscore = score;
