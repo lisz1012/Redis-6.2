@@ -121,7 +121,7 @@ void zslFree(zskiplist *zsl) {
  * levels are less likely to be returned. */
 int zslRandomLevel(void) {
     int level = 1;
-    while ((random()&0xFFFF) < (ZSKIPLIST_P * 0xFFFF))
+    while ((random()&0xFFFF) < (ZSKIPLIST_P * 0xFFFF)) // (随机数 % 65536) < 0.25 * 65535, 1/4的概率造层。层高是等比数列求和，其中首项=1，公比为1/4，层高的期望是1.33
         level += 1;
     return (level<ZSKIPLIST_MAXLEVEL) ? level : ZSKIPLIST_MAXLEVEL;
 }
@@ -135,7 +135,7 @@ zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
     int i, level;
 
     serverAssert(!isnan(score));
-    x = zsl->header;
+    x = zsl->header;  // x用来线性遍历每一个跳表元素，它所指向的某些元素会被放入update数组，这个数组最终只有update[0]有意义，代表了最终的插入位置。update[i]缓存中间结果
     for (i = zsl->level-1; i >= 0; i--) {  // 从上向下跳层，找插入点
         /* store rank that is crossed to reach the insert position */
         rank[i] = i == (zsl->level-1) ? 0 : rank[i+1]; // 从上面的一层copy下rank的值，作为本层的rank初始值，然后做更细粒度的扫描，因为现在离目标位置更近了
@@ -164,7 +164,7 @@ zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
     }
     x = zslCreateNode(level,score,ele);
     for (i = 0; i < level; i++) {
-        x->level[i].forward = update[i]->level[i].forward;
+        x->level[i].forward = update[i]->level[i].forward;  // 在各个层上调整指针，加入这个元素
         update[i]->level[i].forward = x;
 
         /* update span covered by update[i] as x is inserted here */
