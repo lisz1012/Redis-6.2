@@ -135,7 +135,7 @@ zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
     int i, level;
 
     serverAssert(!isnan(score));
-    x = zsl->header;  // x用来线性遍历每一个跳表元素，它所指向的某些元素会被放入update数组，这个数组最终只有update[0]有意义，代表了最终的插入位置。update[i]缓存中间结果
+    x = zsl->header;  // x用来线性遍历每一个跳表元素，它所指向的某些元素会被放入update数组，这个数组最终只有update[0]有意义，代表了最终的插入位置（的左边的节点）。update[i]缓存中间结果+造层的时候用来找新节点在各层上的前面的节点
     for (i = zsl->level-1; i >= 0; i--) {  // 从上向下跳层，找插入点
         /* store rank that is crossed to reach the insert position */
         rank[i] = i == (zsl->level-1) ? 0 : rank[i+1]; // 从上面的一层copy下rank的值，作为本层的rank初始值，然后做更细粒度的扫描，因为现在离目标位置更近了
@@ -169,7 +169,7 @@ zskiplistNode *zslInsert(zskiplist *zsl, double score, sds ele) {
 
         /* update span covered by update[i] as x is inserted here */
         x->level[i].span = update[i]->level[i].span - (rank[0] - rank[i]);  // (rank[0] - rank[i]）是插入位置（rank[0]）向上作垂线，与update[i]->level[i].forward相交，所截的左边的线段，x->level[i].span是矢量update[i]->level[i].forward的长度
-        update[i]->level[i].span = (rank[0] - rank[i]) + 1;
+        update[i]->level[i].span = (rank[0] - rank[i]) + 1;  // +1， 因为新加进来一个
     }
 
     /* increment span for untouched levels */
@@ -1321,7 +1321,7 @@ int zsetScore(robj *zobj, sds member, double *score) {
  *
  * The function does not take ownership of the 'ele' SDS string, but copies
  * it if needed. */
-int zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, double *newscore) {
+int zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, double *newscore) { // 优化点有：skiplist+dict，rank、update临时数组和span的加速
     /* Turn options into simple to check vars. */
     int incr = (in_flags & ZADD_IN_INCR) != 0;
     int nx = (in_flags & ZADD_IN_NX) != 0;
@@ -1439,7 +1439,7 @@ int zsetAdd(robj *zobj, double score, sds ele, int in_flags, int *out_flags, dou
         } else if (!xx) {
             ele = sdsdup(ele);
             znode = zslInsert(zs->zsl,score,ele); // 把元素封装成znode，插入跳表，并把这个znode的score放到了下面这一行的字典里
-            serverAssert(dictAdd(zs->dict,ele,&znode->score) == DICT_OK);
+            serverAssert(dictAdd(zs->dict,ele,&znode->score) == DICT_OK);  // ele是个sds字符串，并没有包含score，这里用dict建立他们的关系：ele->score，这样，通过元素查找分值就快了。这里可见相同的元素ele，作为了dict的键，所以ele不会重复
             *out_flags |= ZADD_OUT_ADDED;
             if (newscore) *newscore = score;
             return 1;

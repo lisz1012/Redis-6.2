@@ -1002,9 +1002,9 @@ typedef struct zskiplistNode {
     sds ele; // 即便是数值也是字典序，做减法，不按别的顺序了
     double score;
     struct zskiplistNode *backward;
-    struct zskiplistLevel {  // 这个结构体就是个"矢量"😂
+    struct zskiplistLevel {  // 这个结构体就是个"矢量" 😂
         struct zskiplistNode *forward;
-        unsigned long span;
+        unsigned long span;  // span是用来根据排名查找的时候算某一层下一个元素的排名的，下一个的排名还小于要查找的元素的排名，则继续往后找
     } level[];  // 这里是弹性的，创建的时候临时告诉Node是多少层的.
 } zskiplistNode;
 

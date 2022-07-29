@@ -3515,7 +3515,7 @@ list *io_threads_list[IO_THREADS_MAX_NUM];
 
 static inline unsigned long getIOPendingCount(int i) {
     unsigned long count = 0;
-    atomicGetWithSync(io_threads_pending[i], count);
+    atomicGetWithSync(io_threads_pending[i], count); // 原子性的取值，底层用了Linux的__c11_atomic_load CAS
     return count;
 }
 
@@ -3536,8 +3536,8 @@ void *IOThreadMain(void *myid) { // IO Thread只负责读写行为。读出来cl
 
     while(1) {
         /* Wait for start */
-        for (int j = 0; j < 1000000; j++) {
-            if (getIOPendingCount(id) != 0) break; // getIOPendingCount返回值 == 0， 则当前线程不让出CPU，空转，但由于一般是多CPU多核，所以即便空转，也不会影响Redis主线程性能。一旦有IO事件就往下走
+        for (int j = 0; j < 1000000; j++) { // IO线程又可能在CPU上忙等空转，未必影响主线程，可能避免无故浪费闲置的CPU
+            if (getIOPendingCount(id) != 0) break; // getIOPendingCount返回值 == 0， 则当前线程不让出CPU，空转，但由于一般是多CPU多核，所以即便空转，也不会影响Redis主线程性能。一旦有IO事件就往下走。id标记了当前线程
         }
 
         /* Give the main thread a chance to stop this thread. */
@@ -3586,7 +3586,7 @@ void initThreadedIO(void) {
     /* Spawn and initialize the I/O threads. */
     for (int i = 0; i < server.io_threads_num; i++) {
         /* Things we do for all the threads including the main thread. */
-        io_threads_list[i] = listCreate();
+        io_threads_list[i] = listCreate(); // IO线程池是一个由双向链表组成的数组，0位置上的链表中只有一个节点，就是main线程
         if (i == 0) continue; /* Thread 0 is the main thread. */
 
         /* Things we do only for the additional threads. */
@@ -3660,7 +3660,7 @@ int stopThreadedIOIfNeeded(void) {
 }
 
 int handleClientsWithPendingWritesUsingThreads(void) {
-    int processed = listLength(server.clients_pending_write); // 运行中有写请求，就会放到clients_pending_write这个List中
+    int processed = listLength(server.clients_pending_write); // 运行中有写请求，就会放到clients_pending_write这个List（链表）中
     if (processed == 0) return 0; /* Return ASAP if there are no clients. */
 
     /* If I/O threads are disabled or we have few clients to serve, don't
@@ -3670,12 +3670,12 @@ int handleClientsWithPendingWritesUsingThreads(void) {
     }
 
     /* Start threads if needed. */
-    if (!server.io_threads_active) startThreadedIO();
+    if (!server.io_threads_active) startThreadedIO();  // 懒加载，有想写入的客户端且现在io threads还不active，就启动
 
     /* Distribute the clients across N different lists. */
     listIter li;
     listNode *ln;
-    listRewind(server.clients_pending_write,&li); // 相当于List.iterator()得到迭代器
+    listRewind(server.clients_pending_write,&li); // 相当于List.iterator()得到迭代器， 指针初始化到头一个
     int item_id = 0;
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);
@@ -3696,7 +3696,7 @@ int handleClientsWithPendingWritesUsingThreads(void) {
     /* Give the start condition to the waiting threads, by setting the
      * start condition atomic var. */
     io_threads_op = IO_THREADS_OP_WRITE;
-    for (int j = 1; j < server.io_threads_num; j++) { // 注意0号线程是主线程，这里从1开始，指的是所有与主线程并行的IO线程
+    for (int j = 1; j < server.io_threads_num; j++) { // 注意0号线程是主线程，所以这里从1开始，指的是所有与主线程并行的IO线程
         int count = listLength(io_threads_list[j]); // 每一个线程对应数组中的一个元素 --> 读写事件client的链表，以备处理
         setIOPendingCount(j, count);   // (原子性)统计总共有多少有读写事件的clients，写入pending的统计数组：io_threads_pending，分别统计各个IO线程的读写事件的个数
     }  // 这里一set，在j对应的IO线程中执行的IOThreadMain中的getIOPendingCount就会感知到对应的链表不为空，从而使得CPU跳出空转继续执行
