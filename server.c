@@ -2134,7 +2134,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     }
 
     /* We need to do a few operations on clients asynchronously. */
-    clientsCron();
+    clientsCron();  // 客户端的超时心跳等
 
     /* Handle background operations on Redis databases. */
     databasesCron();
@@ -2446,7 +2446,7 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
     trackingBroadcastInvalidationMessages();
 
     /* Write the AOF buffer on disk */
-    if (server.aof_state == AOF_ON)
+    if (server.aof_state == AOF_ON)  // 由于每次处理命令之后都会临时往这里面暂存一些aof内容，在这里调用刷写策略，在合适的时机一起刷到硬盘
         flushAppendOnlyFile(0);
 
     /* Handle writes with pending output buffers. */
@@ -3316,7 +3316,7 @@ void initServer(void) {
     /* Create the timer callback, this is our way to process many background
      * operations incrementally, like clients timeout, eviction of unaccessed
      * expired keys and so forth. */
-    if (aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) {
+    if (aeCreateTimeEvent(server.el, 1, serverCron, NULL, NULL) == AE_ERR) { // serverCron是个回调函数。将来每圈循环都会有
         serverPanic("Can't create event loop timers.");
         exit(1);
     }
@@ -3603,9 +3603,9 @@ void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc,
     serverAssert(!(areClientsPaused() && !server.client_pause_in_transaction));
 
     if (server.aof_state != AOF_OFF && flags & PROPAGATE_AOF)
-        feedAppendOnlyFile(cmd,dbid,argv,argc);
+        feedAppendOnlyFile(cmd,dbid,argv,argc); // 执行完指令之后按照RESP协议翻译，然后追加写入AOF
     if (flags & PROPAGATE_REPL)
-        replicationFeedSlaves(server.slaves,dbid,argv,argc);
+        replicationFeedSlaves(server.slaves,dbid,argv,argc); // 主从复制到slave节点
 }
 
 /* Used inside commands to schedule the propagation of additional commands
@@ -3851,7 +3851,7 @@ void call(client *c, int flags) {
         /* Call propagate() only if at least one of AOF / replication
          * propagation is needed. Note that modules commands handle replication
          * in an explicit way, so we never replicate them automatically. */
-        if (propagate_flags != PROPAGATE_NONE && !(c->cmd->flags & CMD_MODULE))
+        if (propagate_flags != PROPAGATE_NONE && !(c->cmd->flags & CMD_MODULE)) // 下面的propagate中调用了feedAppendOnlyFile和replicationFeedSlaves，负责处理aof日志和主从复制，可见aof日志不是wal，而是写后日志
             propagate(c->cmd,c->db->id,c->argv,c->argc,propagate_flags);
     }
 

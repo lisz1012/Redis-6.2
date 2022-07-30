@@ -665,14 +665,14 @@ void feedAppendOnlyFile(struct redisCommand *cmd, int dictid, robj **argv, int a
     /* Append to the AOF buffer. This will be flushed on disk just before
      * of re-entering the event loop, so before the client will get a
      * positive reply about the operation performed. */
-    if (server.aof_state == AOF_ON)
+    if (server.aof_state == AOF_ON)  // 注意⚠️：这里没有立刻写，而是积攒到了全局的server.aof_buf，Time event会触发刷写 （当前是File Event），server.c的2450行才真正刷写
         server.aof_buf = sdscatlen(server.aof_buf,buf,sdslen(buf));
 
     /* If a background append only file rewriting is in progress we want to
      * accumulate the differences between the child DB and the current one
      * in a buffer, so that when the child process will do its work we
      * can append the differences to the new append only file. */
-    if (server.child_type == CHILD_TYPE_AOF)
+    if (server.child_type == CHILD_TYPE_AOF)  // 人家子进程正在重写aof呢，主进程的操作要append起来，到rewriteBuffer
         aofRewriteBufferAppend((unsigned char*)buf,sdslen(buf));
 
     sdsfree(buf);

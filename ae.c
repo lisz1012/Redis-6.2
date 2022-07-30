@@ -204,16 +204,16 @@ int aeGetFileEvents(aeEventLoop *eventLoop, int fd) {
 }
 
 long long aeCreateTimeEvent(aeEventLoop *eventLoop, long long milliseconds,
-        aeTimeProc *proc, void *clientData,
+        aeTimeProc *proc, void *clientData,  // proc是回调函数
         aeEventFinalizerProc *finalizerProc)
 {
     long long id = eventLoop->timeEventNextId++;
-    aeTimeEvent *te;
+    aeTimeEvent *te;  // 好多aeTimeEvent会组成一个双向链表，他就像一个listNode
 
     te = zmalloc(sizeof(*te));
     if (te == NULL) return AE_ERR;
     te->id = id;
-    te->when = getMonotonicUs() + milliseconds * 1000;
+    te->when = getMonotonicUs() + milliseconds * 1000;  // 以微秒为单位
     te->timeProc = proc;
     te->finalizerProc = finalizerProc;
     te->clientData = clientData;
@@ -222,7 +222,7 @@ long long aeCreateTimeEvent(aeEventLoop *eventLoop, long long milliseconds,
     te->refcount = 0;
     if (te->next)
         te->next->prev = te;
-    eventLoop->timeEventHead = te;
+    eventLoop->timeEventHead = te; // 在头部插入
     return id;
 }
 
