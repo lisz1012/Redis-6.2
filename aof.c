@@ -474,7 +474,7 @@ void flushAppendOnlyFile(int force) {
         }
 
         /* Handle the AOF write error. */
-        if (server.aof_fsync == AOF_FSYNC_ALWAYS) {
+        if (server.aof_fsync == AOF_FSYNC_ALWAYS) {  // 对应配置文件里的 appendfsync always/everysec/no. always并不是只是说刷写一条，而是epoll一次读出来一共执行完了多少条
             /* We can't recover when the fsync policy is ALWAYS since the reply
              * for the client is already in the output buffers (both writes and
              * reads), and the changes to the db can't be rolled back. Since we

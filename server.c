@@ -2096,7 +2096,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     unsigned int lruclock = getLRUClock();
     atomicSet(server.lruclock,lruclock);
 
-    cronUpdateMemoryStats();
+    cronUpdateMemoryStats(); // 内存统计
 
     /* We received a SIGTERM, shutting down here in a safe way, as it is
      * not ok doing so inside the signal handler. */
@@ -2134,17 +2134,17 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     }
 
     /* We need to do a few operations on clients asynchronously. */
-    clientsCron();  // 客户端的超时心跳等
+    clientsCron();   // 处理客户端的超时心跳等
 
     /* Handle background operations on Redis databases. */
-    databasesCron();
+    databasesCron(); // 周期性处理过期、rehash扩缩容等事情
 
     /* Start a scheduled AOF rewrite if this was requested by the user while
      * a BGSAVE was in progress. */
     if (!hasActiveChildProcess() &&
         server.aof_rewrite_scheduled)
     {
-        rewriteAppendOnlyFileBackground();
+        rewriteAppendOnlyFileBackground();  // 后台重写AOF
     }
 
     /* Check if a background saving or AOF rewrite in progress terminated. */
@@ -2172,7 +2172,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
                     sp->changes, (int)sp->seconds);
                 rdbSaveInfo rsi, *rsiptr;
                 rsiptr = rdbPopulateSaveInfo(&rsi);
-                rdbSaveBackground(server.rdb_filename,rsiptr);
+                rdbSaveBackground(server.rdb_filename,rsiptr);  // bgsave RDB（后台）
                 break;
             }
         }
@@ -2188,7 +2188,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
             long long growth = (server.aof_current_size*100/base) - 100;
             if (growth >= server.aof_rewrite_perc) {
                 serverLog(LL_NOTICE,"Starting automatic rewriting of AOF on %lld%% growth",growth);
-                rewriteAppendOnlyFileBackground();
+                rewriteAppendOnlyFileBackground();    // 后台重写AOF，该合并的命令合并下
             }
         }
     }
@@ -2200,7 +2200,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     /* AOF postponed flush: Try at every cron cycle if the slow fsync
      * completed. */
     if (server.aof_state == AOF_ON && server.aof_flush_postponed_start)
-        flushAppendOnlyFile(0);
+        flushAppendOnlyFile(0);   // 注意⚠️这里是在前台刷写！
 
     /* AOF write errors: in this case we have a buffer to flush as well and
      * clear the AOF error in case of success to make the DB writable again,
