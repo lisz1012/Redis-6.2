@@ -3603,7 +3603,7 @@ void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc,
     serverAssert(!(areClientsPaused() && !server.client_pause_in_transaction));
 
     if (server.aof_state != AOF_OFF && flags & PROPAGATE_AOF)
-        feedAppendOnlyFile(cmd,dbid,argv,argc); // 执行完指令之后按照RESP协议翻译，然后追加写入AOF
+        feedAppendOnlyFile(cmd,dbid,argv,argc); // 执行完指令之后按照RESP协议翻译，然后追加写入AOF的buffer
     if (flags & PROPAGATE_REPL)
         replicationFeedSlaves(server.slaves,dbid,argv,argc); // 主从复制到slave节点
 }
@@ -5906,13 +5906,13 @@ int redisFork(int purpose) {
         if (hasActiveChildProcess())
             return -1;
 
-        openChildInfoPipe();
+        openChildInfoPipe(); // 里面会初始化 server.child_info_pipe
     }
 
     int childpid;
     long long start = ustime();
-    if ((childpid = fork()) == 0) {
-        /* Child */
+    if ((childpid = fork()) == 0) { // Notes： Under Linux, fork() is implemented using copy-on-write pages, so the only penalty that it incurs is the time and memory required to duplicate the parent's page tables, and to create a unique task structure for the child.
+        /* Child */ // 上面注释里提到了唯一的损耗是页表拷贝，他就是保存虚拟地址到物理地址的映射的，为了寻址。由于Redis并没有执行系统调用execve()，则并没有给子进程指定要执行的代码，则他要执行的逻辑仍然是主进程自己的，子进程是不知道父进程数据变化的。题外话：在bash中执行cat xxx就拿cat的代码逻辑覆盖了主进程bash的
         server.in_fork_child = purpose;
         setOOMScoreAdj(CONFIG_OOM_BGCHILD);
         setupChildSignalHandlers();

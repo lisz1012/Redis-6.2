@@ -42,7 +42,7 @@ typedef struct {
  * RDB / AOF saving process from the child to the parent (for instance
  * the amount of copy on write memory used) */
 void openChildInfoPipe(void) {
-    if (pipe(server.child_info_pipe) == -1) {
+    if (pipe(server.child_info_pipe) == -1) {  // 初始化
         /* On error our two file descriptors should be still set to -1,
          * but we call anyway closeChildInfoPipe() since can't hurt. */
         closeChildInfoPipe();
@@ -105,7 +105,7 @@ void sendChildInfoGeneric(childInfoType info_type, size_t keys, double progress,
 
     ssize_t wlen = sizeof(data);
 
-    if (write(server.child_info_pipe[1], &data, wlen) != wlen) {
+    if (write(server.child_info_pipe[1], &data, wlen) != wlen) { // 向管道里写
         /* Nothing to do on error, this will be detected by the other side. */
     }
 }
