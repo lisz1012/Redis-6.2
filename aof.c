@@ -161,7 +161,7 @@ void aofRewriteBufferAppend(unsigned char *s, unsigned long len) {
     }
 
     /* Install a file event to send data to the rewrite child if there is
-     * not one already. 注册AOF写监听事件。只有有数据了，才能注册写监听事件，再在aofChildWriteDiffData中把上面的block从server.aof_rewrite_buf_blocks中再拿出来，通过server.aof_pipe_write_data_to_child写给子进程，得先有子进程吧，这就是为什么进入本函数之前在676行有这么个判断： if (server.child_type == CHILD_TYPE_AOF)。子进程在aeWait的时候会去看read_data_from_parent这个管道，查看有没有数据 */
+     * not one already. 注册AOF写监听事件。只有有数据了，才能注册写监听事件，再在aofChildWriteDiffData中把上面的block从server.aof_rewrite_buf_blocks中再拿出来，通过server.aof_pipe_write_data_to_child写给子进程，得先有子进程吧，这就是为什么进入本函数之前在676行有这么个判断： if (server.child_type == CHILD_TYPE_AOF)。子进程在aeWait的时候会去看read_data_from_parent这个管道，查看有没有数据. */
     if (!server.aof_stop_sending_diff &&
         aeGetFileEvents(server.el,server.aof_pipe_write_data_to_child) == 0)
     {
