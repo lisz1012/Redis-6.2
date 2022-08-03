@@ -146,7 +146,7 @@ void aofRewriteBufferAppend(unsigned char *s, unsigned long len) {
             block = zmalloc(sizeof(*block));
             block->free = AOF_RW_BUF_BLOCK_SIZE;
             block->used = 0;
-            listAddNodeTail(server.aof_rewrite_buf_blocks,block);  // 把block追加到server.aof_rewrite_buf_blocks (链表).
+            listAddNodeTail(server.aof_rewrite_buf_blocks,block);  // 把block追加到server.aof_rewrite_buf_blocks (链表)
 
             /* Log every time we cross more 10 or 100 blocks, respectively
              * as a notice or warning. */
