@@ -764,7 +764,7 @@ struct redisCommand redisCommandTable[] = {
      "admin no-script",
      0,NULL,0,0,0,0,0,0},
 
-    {"replconf",replconfCommand,-1,
+    {"replconf",replconfCommand,-1, // 一般是slave一上线的时候发过来的
      "admin no-script ok-loading ok-stale",
      0,NULL,0,0,0,0,0,0},
 
@@ -2219,10 +2219,10 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
      * 
      * If Redis is trying to failover then run the replication cron faster so
      * progress on the handshake happens more quickly. */
-    if (server.failover_state != NO_FAILOVER) {
+    if (server.failover_state != NO_FAILOVER) { // Master故障转移（特殊情况）
         run_with_period(100) replicationCron();
     } else {
-        run_with_period(1000) replicationCron();
+        run_with_period(1000) replicationCron(); // 副本的时间时间调度
     }
 
     /* Run the Redis Cluster cron. */
@@ -3852,7 +3852,7 @@ void call(client *c, int flags) {
          * propagation is needed. Note that modules commands handle replication
          * in an explicit way, so we never replicate them automatically. */
         if (propagate_flags != PROPAGATE_NONE && !(c->cmd->flags & CMD_MODULE)) // 下面的propagate中调用了feedAppendOnlyFile和replicationFeedSlaves，负责处理aof日志和主从复制，可见aof日志不是wal，而是写后日志
-            propagate(c->cmd,c->db->id,c->argv,c->argc,propagate_flags);
+            propagate(c->cmd,c->db->id,c->argv,c->argc,propagate_flags); // 在这个propagate函数离，既要做aof增量日志（写后日志），又要发给各个slave从节点
     }
 
     /* Restore the old replication flags, since call() can be executed

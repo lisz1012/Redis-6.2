@@ -303,7 +303,7 @@ int _addReplyToBuffer(client *c, const char *s, size_t len) {
     /* Check that the buffer has enough space available for this string. */
     if (len > available) return C_ERR;
 
-    memcpy(c->buf+c->bufpos,s,len);
+    memcpy(c->buf+c->bufpos,s,len);  // 写入客户端那个连接的buffer：基地址+偏移量。但是并未立即发送
     c->bufpos+=len;
     return C_OK;
 }
@@ -395,7 +395,7 @@ void addReplySds(client *c, sds s) {
  * in the list of objects. */
 void addReplyProto(client *c, const char *s, size_t len) {
     if (prepareClientToWrite(c) != C_OK) return;
-    if (_addReplyToBuffer(c,s,len) != C_OK)
+    if (_addReplyToBuffer(c,s,len) != C_OK) // 在这里（_addReplyToBuffer）写入客户端那个连接的buffer
         _addReplyProtoToList(c,s,len);
 }
 

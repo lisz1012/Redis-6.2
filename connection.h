@@ -116,7 +116,7 @@ static inline int connAccept(connection *conn, ConnectionCallbackFunc accept_han
  */
 static inline int connConnect(connection *conn, const char *addr, int port, const char *src_addr,
         ConnectionCallbackFunc connect_handler) {
-    return conn->type->connect(conn, addr, port, src_addr, connect_handler);
+    return conn->type->connect(conn, addr, port, src_addr, connect_handler);  // CT_Socket.connSocketConnect
 }
 
 /* Blocking connect.
