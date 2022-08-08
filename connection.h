@@ -163,7 +163,7 @@ static inline int connSetWriteHandler(connection *conn, ConnectionCallbackFunc f
  * If NULL, the existing handler is removed.
  */
 static inline int connSetReadHandler(connection *conn, ConnectionCallbackFunc func) {
-    return conn->type->set_read_handler(conn, func);
+    return conn->type->set_read_handler(conn, func);  // connSocketSetReadHandler 或者 connTLSSetReadHandler
 }
 
 /* Set a write handler, and possibly enable a write barrier, this flag is
@@ -187,7 +187,7 @@ static inline const char *connGetLastError(connection *conn) {
 }
 
 static inline ssize_t connSyncWrite(connection *conn, char *ptr, ssize_t size, long long timeout) {
-    return conn->type->sync_write(conn, ptr, size, timeout);
+    return conn->type->sync_write(conn, ptr, size, timeout); // sync_write 是 connSocketSyncWrite 或者 connTLSSyncWrite
 }
 
 static inline ssize_t connSyncRead(connection *conn, char *ptr, ssize_t size, long long timeout) {
@@ -195,7 +195,7 @@ static inline ssize_t connSyncRead(connection *conn, char *ptr, ssize_t size, lo
 }
 
 static inline ssize_t connSyncReadLine(connection *conn, char *ptr, ssize_t size, long long timeout) {
-    return conn->type->sync_readline(conn, ptr, size, timeout);
+    return conn->type->sync_readline(conn, ptr, size, timeout);  // sync_readline 是 connSocketSyncReadLine 或者 connTLSSyncReadLine
 }
 
 /* Return CONN_TYPE_* for the specified connection */
