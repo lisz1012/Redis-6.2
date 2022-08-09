@@ -1545,7 +1545,7 @@ void disklessLoadDiscardBackup(dbBackup *buckup, int flag) {
 
 /* Asynchronously read the SYNC payload we receive from a master。 */
 #define REPL_MAX_WRITTEN_BEFORE_FSYNC (1024*1024*8) /* 8 MB */
-void readSyncBulkPayload(connection *conn) {
+void readSyncBulkPayload(connection *conn) { // 1746 行开始才重点看‼️
     char buf[PROTO_IOBUF_LEN];
     ssize_t nread, readlen, nwritten;
     int use_diskless_load = useDisklessLoad();
@@ -1569,7 +1569,7 @@ void readSyncBulkPayload(connection *conn) {
                 strerror(errno));
             goto error;
         }
-
+        // 根据RESP协议，查看第一个字符，必须是一个'$'才算是正常的返回结果
         if (buf[0] == '-') {
             serverLog(LL_WARNING,
                 "MASTER aborted replication with an error: %s",
@@ -1721,7 +1721,7 @@ void readSyncBulkPayload(connection *conn) {
 
     /* We need to stop any AOF rewriting child before flusing and parsing
      * the RDB, otherwise we'll create a copy-on-write disaster. */
-    if (server.aof_state != AOF_OFF) stopAppendOnly();
+    if (server.aof_state != AOF_OFF) stopAppendOnly();  // 现在开始追随某个master的话，停掉没有意义的aof进程
 
     /* When diskless RDB loading is used by replicas, it may be configured
      * in order to save the current DB instead of throwing it away,
@@ -1743,7 +1743,7 @@ void readSyncBulkPayload(connection *conn) {
      * handler, otherwise it will get called recursively since
      * rdbLoad() will call the event loop to process events from time to
      * time for non blocking loading. */
-    connSetReadHandler(conn, NULL);
+    connSetReadHandler(conn, NULL);  // 重要‼️把本函数在handler这里置空，不依赖eventloop了，这里开始暂且两耳不闻窗外事，只盯着同步数据这件事，读到就处理，读不到就阻塞，从NIO切换到了BIO‼️‼️RDB全推送完之后，再把readQueryFromClient注册回来
     serverLog(LL_NOTICE, "MASTER <-> REPLICA sync: Loading DB in memory");
     rdbSaveInfo rsi = RDB_SAVE_INFO_INIT;
     if (use_diskless_load) {
@@ -1876,8 +1876,8 @@ void readSyncBulkPayload(connection *conn) {
     }
 
     /* Final setup of the connected slave <- master link */
-    replicationCreateMasterClient(server.repl_transfer_s,rsi.repl_stream_db);
-    server.repl_state = REPL_STATE_CONNECTED;
+    replicationCreateMasterClient(server.repl_transfer_s,rsi.repl_stream_db);  // 在这里‼️把readQueryFromClient注册回handler中来了
+    server.repl_state = REPL_STATE_CONNECTED;  // 设置回正常接收数据的状态
     server.repl_down_since = 0;
 
     /* Fire the master link modules event. */
