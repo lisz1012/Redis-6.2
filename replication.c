@@ -1875,7 +1875,7 @@ void readSyncBulkPayload(connection *conn) { // 1746 行开始才重点看‼️
         server.repl_transfer_tmpfile = NULL;
     }
 
-    /* Final setup of the connected slave <- master link */
+    /* Final setup of the connected slave <- master link 从函数名就能看出来，从现在起，认老大了 */
     replicationCreateMasterClient(server.repl_transfer_s,rsi.repl_stream_db);  // 在这里‼️把readQueryFromClient注册回handler中来了
     server.repl_state = REPL_STATE_CONNECTED;  // 设置回正常接收数据的状态
     server.repl_down_since = 0;
