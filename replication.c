@@ -1752,7 +1752,7 @@ void readSyncBulkPayload(connection *conn) { // 1746 行开始才重点看‼️
 
         /* Put the socket in blocking mode to simplify RDB transfer.
          * We'll restore it when the RDB is received. */
-        connBlock(conn);
+        connBlock(conn);   // ‼️NIO切换到了BIO，底层设置了non-block的flag
         connRecvTimeout(conn, server.repl_timeout*1000);
         startLoading(server.repl_transfer_size, RDBFLAGS_REPLICATION);
 
