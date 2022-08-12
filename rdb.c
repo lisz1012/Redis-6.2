@@ -2419,7 +2419,7 @@ void rdbLoadProgressCallback(rio *r, const void *buf, size_t len) {
 
 /* Load an RDB file from the rio stream 'rdb'. On success C_OK is returned,
  * otherwise C_ERR is returned and 'errno' is set accordingly. */
-int rdbLoadRio(rio *rdb, int rdbflags, rdbSaveInfo *rsi) {
+int rdbLoadRio(rio *rdb, int rdbflags, rdbSaveInfo *rsi) { // 从节点跟主节点同步RDB文件的时候，rio指向的是一个连接；主节点重启，加载RDB的时候，他指向的就是一个RDB文件了
     uint64_t dbid;
     int type, rdbver;
     redisDb *db = server.db+0;
@@ -2447,7 +2447,7 @@ int rdbLoadRio(rio *rdb, int rdbflags, rdbSaveInfo *rsi) {
     long long lru_idle = -1, lfu_freq = -1, expiretime = -1, now = mstime();
     long long lru_clock = LRU_CLOCK();
 
-    while(1) {
+    while(1) { // block BIO自己一直读master发过来的RDB文件
         sds key;
         robj *val;
 
@@ -2761,8 +2761,8 @@ int rdbLoad(char *filename, rdbSaveInfo *rsi, int rdbflags) {
 
     if ((fp = fopen(filename,"r")) == NULL) return C_ERR;
     startLoadingFile(fp, filename,rdbflags);
-    rioInitWithFile(&rdb,fp);
-    retval = rdbLoadRio(&rdb,rdbflags,rsi);
+    rioInitWithFile(&rdb,fp);  // 这里rio的io设置成了File的文描
+    retval = rdbLoadRio(&rdb,rdbflags,rsi);  // 传输完了RDB之后，拿到本地RDB文件，再在内存中构建
     fclose(fp);
     stopLoading(retval==C_OK);
     return retval;

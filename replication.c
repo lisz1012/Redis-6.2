@@ -1746,13 +1746,13 @@ void readSyncBulkPayload(connection *conn) { // 1746 行开始才重点看‼️
     connSetReadHandler(conn, NULL);  // 重要‼️把本函数在handler这里置空，不依赖eventloop了，这里开始暂且两耳不闻窗外事，只盯着同步数据这件事，读到就处理，读不到就阻塞，从NIO切换到了BIO‼️‼️RDB全推送完之后，再把readQueryFromClient注册回来
     serverLog(LL_NOTICE, "MASTER <-> REPLICA sync: Loading DB in memory");
     rdbSaveInfo rsi = RDB_SAVE_INFO_INIT;
-    if (use_diskless_load) {
+    if (use_diskless_load) { // 无盘形式，直接收到RDB文件在内存中构建，不落盘
         rio rdb;
         rioInitWithConn(&rdb,conn,server.repl_transfer_size);
 
         /* Put the socket in blocking mode to simplify RDB transfer.
          * We'll restore it when the RDB is received. */
-        connBlock(conn);   // ‼️NIO切换到了BIO，底层设置了non-block的flag
+        connBlock(conn);   // ‼️NIO切换到了BIO，底层设置了non-block的flag ‼️为什么这会儿可以BIO？BIO不是低效吗？因为同步RDB文件这会儿，没！有！并！发！
         connRecvTimeout(conn, server.repl_timeout*1000);
         startLoading(server.repl_transfer_size, RDBFLAGS_REPLICATION);
 

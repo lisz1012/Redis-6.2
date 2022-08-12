@@ -256,7 +256,7 @@ static const rio rioConnIO = {
  * read_limit argument stops buffering when the reaching the limit. */
 void rioInitWithConn(rio *r, connection *conn, size_t read_limit) {
     *r = rioConnIO;
-    r->io.conn.conn = conn;
+    r->io.conn.conn = conn;  // 无盘形式，设置成connection，rio的其中一个具体实现
     r->io.conn.pos = 0;
     r->io.conn.read_limit = read_limit;
     r->io.conn.read_so_far = 0;

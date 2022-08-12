@@ -65,7 +65,7 @@ struct _rio {
     size_t max_processing_chunk;
 
     /* Backend-specific vars. */
-    union {  // 初始化rio 联合体的时候，各个struct只能取其中的一个：内存的、标准IO的、socket连接的、文件的
+    union {  // 初始化rio 联合体的时候，各个struct只能取其中的一个：内存的、标准IO的、socket连接的、文件的。这里有点像多态
         /* In-memory buffer target. */
         struct {
             sds ptr;
