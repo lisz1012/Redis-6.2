@@ -772,7 +772,7 @@ void syncCommand(client *c) {
      *
      * So the slave knows the new replid and offset to try a PSYNC later
      * if the connection with the master is lost. */
-    if (!strcasecmp(c->argv[0]->ptr,"psync")) { // 看看需不需要全同步
+    if (!strcasecmp(c->argv[0]->ptr,"psync")) { // 看看需不需要全同步，如果slave发过来的是psync，partial 同步
         long long psync_offset;
         if (getLongLongFromObjectOrReply(c, c->argv[2], &psync_offset, NULL) != C_OK) {
             serverLog(LL_WARNING, "Replica %s asks for synchronization but with a wrong offset",
