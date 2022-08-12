@@ -418,7 +418,7 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
 
 /* Feed the slave 'c' with the replication backlog starting from the
  * specified 'offset' up to the end of the backlog. */
-long long addReplyReplicationBacklog(client *c, long long offset) {
+long long addReplyReplicationBacklog(client *c, long long offset) { // 从offset开始，做增量传输
     long long j, skip, len;
 
     serverLog(LL_DEBUG, "[PSYNC] Replica request offset: %lld", offset);
@@ -444,7 +444,7 @@ long long addReplyReplicationBacklog(client *c, long long offset) {
     /* Point j to the oldest byte, that is actually our
      * server.repl_backlog_off byte. */
     j = (server.repl_backlog_idx +
-        (server.repl_backlog_size-server.repl_backlog_histlen)) %
+        (server.repl_backlog_size-server.repl_backlog_histlen)) %  // 把环缓想象成一个钟表🕙 %是为了应付实际数据server.repl_backlog_histlen 跨越0点的情况
         server.repl_backlog_size;
     serverLog(LL_DEBUG, "[PSYNC] Index of first byte: %lld", j);
 
@@ -453,19 +453,19 @@ long long addReplyReplicationBacklog(client *c, long long offset) {
 
     /* Feed slave with data. Since it is a circular buffer we have to
      * split the reply in two parts if we are cross-boundary. */
-    len = server.repl_backlog_histlen - skip;
+    len = server.repl_backlog_histlen - skip;  // 从j位置（相对于0的偏移量）开始往外写，写len个字节
     serverLog(LL_DEBUG, "[PSYNC] Reply total length: %lld", len);
     while(len) {
         long long thislen =
             ((server.repl_backlog_size - j) < len) ?
-            (server.repl_backlog_size - j) : len;
+            (server.repl_backlog_size - j) : len;  // 头一种情况是：j和j+len跨0了，则先写到0，再来下一循环
 
         serverLog(LL_DEBUG, "[PSYNC] addReply() length: %lld", thislen);
         addReplySds(c,sdsnewlen(server.repl_backlog + j, thislen));
         len -= thislen;
         j = 0;
     }
-    return server.repl_backlog_histlen - skip;
+    return server.repl_backlog_histlen - skip; // 就是最初算出来的那个len
 }
 
 /* Return the offset to provide as reply to the PSYNC command received
@@ -535,11 +535,11 @@ int masterTryPartialResynchronization(client *c, long long psync_offset) {
      * and the ID2. The ID2 however is only valid up to a specific offset. */
     if (strcasecmp(master_replid, server.replid) &&   // strcasecmp，两字符串相同则返回0，否则比长度
         (strcasecmp(master_replid, server.replid2) ||
-         psync_offset > server.second_replid_offset))
+         psync_offset > server.second_replid_offset))  // offset超出
     {
         /* Replid "?" is used by slaves that want to force a full resync. */
         if (master_replid[0] != '?') {  // slave想 partial sync 的情况
-            if (strcasecmp(master_replid, server.replid) &&
+            if (strcasecmp(master_replid, server.replid) &&  // 具体判断是上面536行if中的哪一种情况
                 strcasecmp(master_replid, server.replid2))   // slave心目中的master不是我
             {
                 serverLog(LL_NOTICE,"Partial resynchronization not accepted: "
@@ -551,7 +551,7 @@ int masterTryPartialResynchronization(client *c, long long psync_offset) {
                     "Requested offset for second ID was %lld, but I can reply "
                     "up to %lld", psync_offset, server.second_replid_offset);
             }
-        } else {  // slave想 full sync
+        } else {  // slave发来了？，可能是个萌新，想full sync
             serverLog(LL_NOTICE,"Full resync requested by replica %s",
                 replicationGetSlaveName(c));
         }
@@ -580,7 +580,7 @@ int masterTryPartialResynchronization(client *c, long long psync_offset) {
     c->replstate = SLAVE_STATE_ONLINE;
     c->repl_ack_time = server.unixtime;
     c->repl_put_online_on_ack = 0;
-    listAddNodeTail(server.slaves,c);
+    listAddNodeTail(server.slaves,c);  // 我又多了个slave😄
     /* We can't use the connection buffers since they are used to accumulate
      * new commands at this stage. But we are sure the socket send buffer is
      * empty so this write will never fail actually. */
@@ -589,11 +589,11 @@ int masterTryPartialResynchronization(client *c, long long psync_offset) {
     } else {
         buflen = snprintf(buf,sizeof(buf),"+CONTINUE\r\n");
     }
-    if (connWrite(c->conn,buf,buflen) != buflen) {  // 把"CONTINUE"写给slave，表示可以增量同步
+    if (connWrite(c->conn,buf,buflen) != buflen) {  // 把"CONTINUE"写给slave，表示可以增量同步 里面调用了 connSocketWrite
         freeClientAsync(c);
-        return C_OK;  // 返回C_OK代表可以增量同步
+        return C_OK;  // 返回C_OK代表可以增量同步。connWrite的时候写出错了，也返回C_OK，略费解，但是上面line584-586的注释说写出总会成功，应该不会执行到if里面来
     }
-    psync_len = addReplyReplicationBacklog(c,psync_offset);
+    psync_len = addReplyReplicationBacklog(c,psync_offset);  // 复制数据到slave。 之后就看slave那一侧，syncWithMaster函数的了
     serverLog(LL_NOTICE,
         "Partial resynchronization request from %s accepted. Sending %lld bytes of backlog starting from offset %lld.",
             replicationGetSlaveName(c),
@@ -652,9 +652,9 @@ int startBgsaveForReplication(int mincapa) {
      * otherwise slave will miss repl-stream-db. */
     if (rsiptr) {
         if (socket_target)
-            retval = rdbSaveToSlavesSockets(rsiptr);
+            retval = rdbSaveToSlavesSockets(rsiptr);  // 这里就直接当场嘴对嘴的传输数据了，也要甩出去一个子进程
         else
-            retval = rdbSaveBackground(server.rdb_filename,rsiptr); // 里面又调用fork()甩出子进程了。
+            retval = rdbSaveBackground(server.rdb_filename,rsiptr); // 里面又调用fork()甩出子进程了，但这里先只做一半，只是落盘，后续再发出去。
     } else {
         serverLog(LL_WARNING,"BGSAVE for replication: replication information not available, can't generate the RDB file right now. Try later.");
         retval = C_ERR;
@@ -780,7 +780,7 @@ void syncCommand(client *c) {
             return;
         }
 
-        if (masterTryPartialResynchronization(c, psync_offset) == C_OK) {
+        if (masterTryPartialResynchronization(c, psync_offset) == C_OK) {  // masterTryPartialResynchronization 里面尝试了 partial sync
             server.stat_sync_partial_ok++;
             return; /* No full resync needed, return. */
         } else {
@@ -872,7 +872,7 @@ void syncCommand(client *c) {
     /* CASE 3: There is no BGSAVE is progress. */
     } else {
         if (server.repl_diskless_sync && (c->slave_capa & SLAVE_CAPA_EOF) &&
-            server.repl_diskless_sync_delay)
+            server.repl_diskless_sync_delay)  // 等下次bgsave，怕是瞬时有多个客户端连进来
         {
             /* Diskless replication RDB child is created inside
              * replicationCron() since we want to delay its start a

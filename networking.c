@@ -380,7 +380,7 @@ void addReplySds(client *c, sds s) {
         sdsfree(s);
         return;
     }
-    if (_addReplyToBuffer(c,s,sdslen(s)) != C_OK)
+    if (_addReplyToBuffer(c,s,sdslen(s)) != C_OK) // 这里并未立即发送
         _addReplyProtoToList(c,s,sdslen(s));
     sdsfree(s);
 }
