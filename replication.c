@@ -1033,7 +1033,7 @@ void putSlaveOnline(client *slave) {
         freeClientAsync(slave);
         return;
     }
-    if (connSetWriteHandler(slave->conn, sendReplyToClient) == C_ERR) {
+    if (connSetWriteHandler(slave->conn, sendReplyToClient) == C_ERR) {  // 切换回sendReplyToClient
         serverLog(LL_WARNING,"Unable to register writable event for replica bulk transfer: %s", strerror(errno));
         freeClient(slave);
         return;
@@ -1094,7 +1094,7 @@ void removeRDBUsedToSyncReplicas(void) {
     }
 }
 
-void sendBulkToSlave(connection *conn) {
+void sendBulkToSlave(connection *conn) {  // 每次读出16KB的RDB文件内容，然后将其写出到slave。该写的都写完了之后，会让slave置为上线，并把其writeHandler设置回sendReplyToClient，详见下面的putSlaveOnline的调用
     client *slave = connGetPrivateData(conn);
     char buf[PROTO_IOBUF_LEN];
     ssize_t nwritten, buflen;
@@ -1103,7 +1103,7 @@ void sendBulkToSlave(connection *conn) {
      * replication process. Currently the preamble is just the bulk count of
      * the file in the form "$<length>\r\n". */
     if (slave->replpreamble) {
-        nwritten = connWrite(conn,slave->replpreamble,sdslen(slave->replpreamble));
+        nwritten = connWrite(conn,slave->replpreamble,sdslen(slave->replpreamble)); // 先写出去个元数据
         if (nwritten == -1) {
             serverLog(LL_VERBOSE,
                 "Write error sending RDB preamble to replica: %s",
@@ -1123,15 +1123,15 @@ void sendBulkToSlave(connection *conn) {
     }
 
     /* If the preamble was already transferred, send the RDB bulk data. */
-    lseek(slave->repldbfd,slave->repldboff,SEEK_SET);
-    buflen = read(slave->repldbfd,buf,PROTO_IOBUF_LEN);
+    lseek(slave->repldbfd,slave->repldboff,SEEK_SET);  // 找到上次写入的位置
+    buflen = read(slave->repldbfd,buf,PROTO_IOBUF_LEN);  // 每次读出16kB的RDB文件数据来
     if (buflen <= 0) {
         serverLog(LL_WARNING,"Read error sending DB to replica: %s",
             (buflen == 0) ? "premature EOF" : strerror(errno));
         freeClient(slave);
         return;
     }
-    if ((nwritten = connWrite(conn,buf,buflen)) == -1) {
+    if ((nwritten = connWrite(conn,buf,buflen)) == -1) {  // 把从文件中读出来的16KB转手写出去
         if (connGetState(conn) != CONN_STATE_CONNECTED) {
             serverLog(LL_WARNING,"Write error sending DB to replica: %s",
                 connGetLastError(conn));
@@ -1139,12 +1139,12 @@ void sendBulkToSlave(connection *conn) {
         }
         return;
     }
-    slave->repldboff += nwritten;
+    slave->repldboff += nwritten;  // 步进，一边下一次接着写（好像只能等下一次serverCron被调用到，并非一口气发出去）
     atomicIncr(server.stat_net_output_bytes, nwritten);
-    if (slave->repldboff == slave->repldbsize) {
+    if (slave->repldboff == slave->repldbsize) {  // 写完了，slave上线
         close(slave->repldbfd);
         slave->repldbfd = -1;
-        connSetWriteHandler(slave->conn,NULL);
+        connSetWriteHandler(slave->conn,NULL); // 写撤销
         putSlaveOnline(slave);
     }
 }
@@ -1301,7 +1301,7 @@ void rdbPipeReadHandler(struct aeEventLoop *eventLoop, int fd, void *clientData,
  * otherwise C_ERR is passed to the function.
  * The 'type' argument is the type of the child that terminated
  * (if it had a disk or socket target). */
-void updateSlavesWaitingBgsave(int bgsaveerr, int type) {
+void updateSlavesWaitingBgsave(int bgsaveerr, int type) { // 这里面开始传输RDB在磁盘上的数据了。bgsaveerr这变量名...
     listNode *ln;
     listIter li;
 
