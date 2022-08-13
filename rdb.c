@@ -2419,7 +2419,7 @@ void rdbLoadProgressCallback(rio *r, const void *buf, size_t len) {
 
 /* Load an RDB file from the rio stream 'rdb'. On success C_OK is returned,
  * otherwise C_ERR is returned and 'errno' is set accordingly. */
-int rdbLoadRio(rio *rdb, int rdbflags, rdbSaveInfo *rsi) {
+int rdbLoadRio(rio *rdb, int rdbflags, rdbSaveInfo *rsi) { // 从节点跟主节点同步RDB文件的时候，rio指向的是一个连接；主节点重启，加载RDB的时候，他指向的就是一个RDB文件了
     uint64_t dbid;
     int type, rdbver;
     redisDb *db = server.db+0;
@@ -2447,7 +2447,7 @@ int rdbLoadRio(rio *rdb, int rdbflags, rdbSaveInfo *rsi) {
     long long lru_idle = -1, lfu_freq = -1, expiretime = -1, now = mstime();
     long long lru_clock = LRU_CLOCK();
 
-    while(1) {
+    while(1) { // block BIO自己一直读master发过来的RDB文件
         sds key;
         robj *val;
 
@@ -2761,8 +2761,8 @@ int rdbLoad(char *filename, rdbSaveInfo *rsi, int rdbflags) {
 
     if ((fp = fopen(filename,"r")) == NULL) return C_ERR;
     startLoadingFile(fp, filename,rdbflags);
-    rioInitWithFile(&rdb,fp);
-    retval = rdbLoadRio(&rdb,rdbflags,rsi);
+    rioInitWithFile(&rdb,fp);  // 这里rio的io设置成了File的文描
+    retval = rdbLoadRio(&rdb,rdbflags,rsi);  // 传输完了RDB之后，拿到本地RDB文件，再在内存中构建
     fclose(fp);
     stopLoading(retval==C_OK);
     return retval;
@@ -2866,7 +2866,7 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
     listNode *ln;
     listIter li;
     pid_t childpid;
-    int pipefds[2], rdb_pipe_write, safe_to_exit_pipe;
+    int pipefds[2], rdb_pipe_write, safe_to_exit_pipe; // 这个管道被用来跟父进程通信
 
     if (hasActiveChildProcess()) return C_ERR;
 
@@ -2877,7 +2877,7 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
     /* Before to fork, create a pipe that is used to transfer the rdb bytes to
      * the parent, we can't let it write directly to the sockets, since in case
      * of TLS we must let the parent handle a continuous TLS state when the
-     * child terminates and parent takes over. */
+     * child terminates and parent takes over. 直接怼client的socket，为什么不能直接由子进程写出RDB、数据？因为TLS  */
     if (pipe(pipefds) == -1) return C_ERR;
     server.rdb_pipe_read = pipefds[0]; /* read end */
     rdb_pipe_write = pipefds[1]; /* write end */

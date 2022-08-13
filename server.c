@@ -764,7 +764,7 @@ struct redisCommand redisCommandTable[] = {
      "admin no-script",
      0,NULL,0,0,0,0,0,0},
 
-    {"replconf",replconfCommand,-1,
+    {"replconf",replconfCommand,-1, // 一般是slave一上线的时候发过来的
      "admin no-script ok-loading ok-stale",
      0,NULL,0,0,0,0,0,0},
 
@@ -2096,7 +2096,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     unsigned int lruclock = getLRUClock();
     atomicSet(server.lruclock,lruclock);
 
-    cronUpdateMemoryStats();
+    cronUpdateMemoryStats(); // 内存统计
 
     /* We received a SIGTERM, shutting down here in a safe way, as it is
      * not ok doing so inside the signal handler. */
@@ -2134,17 +2134,18 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     }
 
     /* We need to do a few operations on clients asynchronously. */
-    clientsCron();  // 客户端的超时心跳等.
+
+    clientsCron();   // 处理客户端的超时心跳等
 
     /* Handle background operations on Redis databases. */
-    databasesCron();
+    databasesCron(); // 周期性处理过期、rehash扩缩容等事情
 
     /* Start a scheduled AOF rewrite if this was requested by the user while
      * a BGSAVE was in progress. */
     if (!hasActiveChildProcess() &&
         server.aof_rewrite_scheduled)
     {
-        rewriteAppendOnlyFileBackground();
+        rewriteAppendOnlyFileBackground();  // 后台重写AOF
     }
 
     /* Check if a background saving or AOF rewrite in progress terminated. */
@@ -2172,7 +2173,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
                     sp->changes, (int)sp->seconds);
                 rdbSaveInfo rsi, *rsiptr;
                 rsiptr = rdbPopulateSaveInfo(&rsi);
-                rdbSaveBackground(server.rdb_filename,rsiptr);
+                rdbSaveBackground(server.rdb_filename,rsiptr);  // bgsave RDB（后台）
                 break;
             }
         }
@@ -2188,7 +2189,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
             long long growth = (server.aof_current_size*100/base) - 100;
             if (growth >= server.aof_rewrite_perc) {
                 serverLog(LL_NOTICE,"Starting automatic rewriting of AOF on %lld%% growth",growth);
-                rewriteAppendOnlyFileBackground();
+                rewriteAppendOnlyFileBackground();    // 后台重写AOF，该合并的命令合并下
             }
         }
     }
@@ -2200,7 +2201,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     /* AOF postponed flush: Try at every cron cycle if the slow fsync
      * completed. */
     if (server.aof_state == AOF_ON && server.aof_flush_postponed_start)
-        flushAppendOnlyFile(0);
+        flushAppendOnlyFile(0);   // 注意⚠️这里是在前台刷写！
 
     /* AOF write errors: in this case we have a buffer to flush as well and
      * clear the AOF error in case of success to make the DB writable again,
@@ -2219,10 +2220,10 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
      * 
      * If Redis is trying to failover then run the replication cron faster so
      * progress on the handshake happens more quickly. */
-    if (server.failover_state != NO_FAILOVER) {
+    if (server.failover_state != NO_FAILOVER) { // Master故障转移（特殊情况）
         run_with_period(100) replicationCron();
     } else {
-        run_with_period(1000) replicationCron();
+        run_with_period(1000) replicationCron(); // 副本的时间时间调度
     }
 
     /* Run the Redis Cluster cron. */
@@ -3603,7 +3604,7 @@ void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc,
     serverAssert(!(areClientsPaused() && !server.client_pause_in_transaction));
 
     if (server.aof_state != AOF_OFF && flags & PROPAGATE_AOF)
-        feedAppendOnlyFile(cmd,dbid,argv,argc); // 执行完指令之后按照RESP协议翻译，然后追加写入AOF
+        feedAppendOnlyFile(cmd,dbid,argv,argc); // 执行完指令之后按照RESP协议翻译，然后追加写入AOF的buffer
     if (flags & PROPAGATE_REPL)
         replicationFeedSlaves(server.slaves,dbid,argv,argc); // 主从复制到slave节点
 }
@@ -3852,7 +3853,7 @@ void call(client *c, int flags) {
          * propagation is needed. Note that modules commands handle replication
          * in an explicit way, so we never replicate them automatically. */
         if (propagate_flags != PROPAGATE_NONE && !(c->cmd->flags & CMD_MODULE)) // 下面的propagate中调用了feedAppendOnlyFile和replicationFeedSlaves，负责处理aof日志和主从复制，可见aof日志不是wal，而是写后日志
-            propagate(c->cmd,c->db->id,c->argv,c->argc,propagate_flags);
+            propagate(c->cmd,c->db->id,c->argv,c->argc,propagate_flags); // 在这个propagate函数离，既要做aof增量日志（写后日志），又要发给各个slave从节点
     }
 
     /* Restore the old replication flags, since call() can be executed
@@ -5906,13 +5907,13 @@ int redisFork(int purpose) {
         if (hasActiveChildProcess())
             return -1;
 
-        openChildInfoPipe();
+        openChildInfoPipe(); // 里面会初始化 server.child_info_pipe
     }
 
     int childpid;
     long long start = ustime();
-    if ((childpid = fork()) == 0) {
-        /* Child */
+    if ((childpid = fork()) == 0) { // Notes： Under Linux, fork() is implemented using copy-on-write pages, so the only penalty that it incurs is the time and memory required to duplicate the parent's page tables, and to create a unique task structure for the child.
+        /* Child */ // 上面注释里提到了唯一的损耗是页表拷贝，他就是保存虚拟地址到物理地址的映射的，为了寻址。由于Redis并没有执行系统调用execve()，则并没有给子进程指定要执行的代码，则他要执行的逻辑仍然是主进程自己的，子进程是不知道父进程数据变化的。题外话：在bash中执行cat xxx就拿cat的代码逻辑覆盖了主进程bash的
         server.in_fork_child = purpose;
         setOOMScoreAdj(CONFIG_OOM_BGCHILD);
         setupChildSignalHandlers();

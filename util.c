@@ -341,7 +341,7 @@ int ll2string(char *dst, size_t dstlen, long long svalue) {
     }
 
     /* Check length. */
-    uint32_t const length = digits10(value)+negative;
+    uint32_t const length = digits10(value)+negative; // 十进制长度
     if (length >= dstlen) return 0;
 
     /* Null term. */

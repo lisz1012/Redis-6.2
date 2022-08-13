@@ -53,7 +53,7 @@ ssize_t syncWrite(int fd, char *ptr, ssize_t size, long long timeout) {
 
     while(1) {
         long long wait = (remaining > SYNCIO__RESOLUTION) ?
-                          remaining : SYNCIO__RESOLUTION;
+                          remaining : SYNCIO__RESOLUTION; // 最少等待10毫秒，分辨率为10ms
         long long elapsed;
 
         /* Optimistically try to write before checking if the file descriptor
