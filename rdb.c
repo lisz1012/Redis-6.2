@@ -2913,10 +2913,10 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
         int retval, dummy;
         rio rdb;
 
-        rioInitWithFd(&rdb,rdb_pipe_write); // 子进程遍历字典写RDB文件
+        rioInitWithFd(&rdb,rdb_pipe_write); // 子进程遍历字典写RDB文件，把管道设置给rdb
 
         redisSetProcTitle("redis-rdb-to-slaves");
-        redisSetCpuAffinity(server.bgsave_cpulist);
+        redisSetCpuAffinity(server.bgsave_cpulist);  // 绑核了
 
         retval = rdbSaveRioWithEOFMark(&rdb,NULL,rsi);
         if (retval == C_OK && rioFlush(&rdb) == 0)

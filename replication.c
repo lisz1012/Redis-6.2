@@ -1192,8 +1192,8 @@ void rdbPipeWriteHandler(struct connection *conn) {
     rdbPipeWriteHandlerConnRemoved(conn);
 }
 
-/* Called in diskless master, when there's data to read from the child's rdb pipe */
-void rdbPipeReadHandler(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask) {
+/* Called in diskless master, when there's data to read from the child's rdb pipe */ // Redis可玩性很大：worker可不可以多线程？后台线程可不可以直接自己完成数据同步？可以规定配了两个网卡（open stack），跟slave交流的与跟客户端交流的走不同的网卡。至于多线程，更倾向于多实例，容错性跟好一些
+void rdbPipeReadHandler(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask) {  // 从管道里读取：子进程推送数据到pipeline，master通过eventloop读取子进程数据然后发送给slave。为什么这么设计？运维是不是在这台机器上装了多块网卡？有没有绑定是不知道的。配置可以实现命令放在A网卡，数据放在B网卡，假设没有做这个事情，则许多子进程各自往slave连接写数据，可能会过多占用网卡，网卡占用度不可控了，影响给用户的客户端返回的效率
     UNUSED(mask);
     UNUSED(clientData);
     UNUSED(eventLoop);
@@ -1203,7 +1203,7 @@ void rdbPipeReadHandler(struct aeEventLoop *eventLoop, int fd, void *clientData,
     serverAssert(server.rdb_pipe_numconns_writing==0);
 
     while (1) {
-        server.rdb_pipe_bufflen = read(fd, server.rdb_pipe_buff, PROTO_IOBUF_LEN);
+        server.rdb_pipe_bufflen = read(fd, server.rdb_pipe_buff, PROTO_IOBUF_LEN);  // 从管道里面读，后面要向slave发送，master是NIO发送，slave是BIO接收
         if (server.rdb_pipe_bufflen < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 return;
@@ -1241,7 +1241,7 @@ void rdbPipeReadHandler(struct aeEventLoop *eventLoop, int fd, void *clientData,
         }
 
         int stillAlive = 0;
-        for (i=0; i < server.rdb_pipe_numconns; i++)
+        for (i=0; i < server.rdb_pipe_numconns; i++) //  给所有的活动的从节点发送
         {
             int nwritten;
             connection *conn = server.rdb_pipe_conns[i];
@@ -1249,7 +1249,7 @@ void rdbPipeReadHandler(struct aeEventLoop *eventLoop, int fd, void *clientData,
                 continue;
 
             client *slave = connGetPrivateData(conn);
-            if ((nwritten = connWrite(conn, server.rdb_pipe_buff, server.rdb_pipe_bufflen)) == -1) {
+            if ((nwritten = connWrite(conn, server.rdb_pipe_buff, server.rdb_pipe_bufflen)) == -1) {  // 向slave发送了，slave是BIO阻塞读取
                 if (connGetState(conn) != CONN_STATE_CONNECTED) {
                     serverLog(LL_WARNING,"Diskless rdb transfer, write error sending DB to replica: %s",
                         connGetLastError(conn));
