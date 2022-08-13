@@ -2913,7 +2913,7 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
         int retval, dummy;
         rio rdb;
 
-        rioInitWithFd(&rdb,rdb_pipe_write);
+        rioInitWithFd(&rdb,rdb_pipe_write); // 子进程遍历字典写RDB文件
 
         redisSetProcTitle("redis-rdb-to-slaves");
         redisSetCpuAffinity(server.bgsave_cpulist);
@@ -2963,7 +2963,7 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
                 (long) childpid);
             server.rdb_save_time_start = time(NULL);
             server.rdb_child_type = RDB_CHILD_TYPE_SOCKET;
-            close(rdb_pipe_write); /* close write in parent so that it can detect the close on the child. */
+            close(rdb_pipe_write); /* close write in parent so that it can detect the close on the child. */ // 下面开始从pipe中读了
             if (aeCreateFileEvent(server.el, server.rdb_pipe_read, AE_READABLE, rdbPipeReadHandler,NULL) == AE_ERR) {
                 serverPanic("Unrecoverable error creating server.rdb_pipe_read file event.");
             }
