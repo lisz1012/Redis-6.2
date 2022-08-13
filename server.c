@@ -2134,6 +2134,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     }
 
     /* We need to do a few operations on clients asynchronously. */
+
     clientsCron();   // 处理客户端的超时心跳等
 
     /* Handle background operations on Redis databases. */
