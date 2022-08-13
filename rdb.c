@@ -2877,7 +2877,7 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
     /* Before to fork, create a pipe that is used to transfer the rdb bytes to
      * the parent, we can't let it write directly to the sockets, since in case
      * of TLS we must let the parent handle a continuous TLS state when the
-     * child terminates and parent takes over. 直接怼client的socket，为什么不能直接由子进程写出RDB、数据？因为TLS.  */
+     * child terminates and parent takes over. 直接怼client的socket，为什么不能直接由子进程写出RDB、数据？因为TLS. . */
     if (pipe(pipefds) == -1) return C_ERR;
     server.rdb_pipe_read = pipefds[0]; /* read end */
     rdb_pipe_write = pipefds[1]; /* write end */
