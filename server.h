@@ -860,7 +860,7 @@ typedef struct client {
     uint64_t id;            /* Client incremental unique ID. */
     connection *conn;
     int resp;               /* RESP protocol version. Can be 2 or 3. */
-    redisDb *db;            /* Pointer to currently SELECTed DB. */
+    redisDb *db;            /* Pointer to currently SELECTed DB. 客户端访问的是哪个DB */
     robj *name;             /* As set by CLIENT SETNAME. */
     sds querybuf;           /* Buffer we use to accumulate client queries. */
     size_t qb_pos;          /* The position we have read in querybuf. */
@@ -1541,7 +1541,7 @@ struct redisServer {
     size_t blocking_op_nesting; /* Nesting level of blocking operation, used to reset blocked_last_cron. */
     long long blocked_last_cron; /* Indicate the mstime of the last time we did cron jobs from a blocking operation */
     /* Pubsub */
-    dict *pubsub_channels;  /* Map channels to list of subscribed clients */
+    dict *pubsub_channels;  /* Map channels to list of subscribed clients. 发布订阅的Channel跟平时使用的KV是一样的，单独用了一个字典，看不到历史消息，这个dict存的是订阅者的列表，而不是真正的数据 */
     dict *pubsub_patterns;  /* A dict of pubsub_patterns */
     int notify_keyspace_events; /* Events to propagate via Pub/Sub. This is an
                                    xor of NOTIFY_... flags. */

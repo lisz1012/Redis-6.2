@@ -244,7 +244,7 @@ void pushGenericCommand(client *c, int where, int xx) {
         lobj = createQuicklistObject();  // 没有直接用到ziplist，因为quickList底层用了zipList，把多个quicklist的元素压成一个ziplist，连续放在内存中，作为quicklist的一个node。
         quicklistSetOptions(lobj->ptr, server.list_max_ziplist_size,
                             server.list_compress_depth);
-        dbAdd(c->db,c->argv[1],lobj);
+        dbAdd(c->db,c->argv[1],lobj); // dbAdd中会在放入值的同时，通知block在相应的key上的客户端，他的数据到了
     }
 
     for (j = 2; j < c->argc; j++) { // 步进是1，链表是单元素
@@ -256,7 +256,7 @@ void pushGenericCommand(client *c, int where, int xx) {
 
     char *event = (where == LIST_HEAD) ? "lpush" : "rpush";
     signalModifiedKey(c,c->db,c->argv[1]);
-    notifyKeyspaceEvent(NOTIFY_LIST,event,c->argv[1],c->db->id);
+    notifyKeyspaceEvent(NOTIFY_LIST,event,c->argv[1],c->db->id);  // 内部隐藏功能
 }
 
 /* LPUSH <key> <element> [<element> ...] */

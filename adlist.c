@@ -346,7 +346,7 @@ void listRotateTailToHead(list *list) {
 void listRotateHeadToTail(list *list) {
     if (listLength(list) <= 1) return;
 
-    listNode *head = list->head;
+    listNode *head = list->head; // 老的head先拿出来
     /* Detach current head */
     list->head = head->next;
     list->head->prev = NULL;

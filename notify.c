@@ -98,7 +98,7 @@ sds keyspaceEventsFlagsToString(int flags) {
  * 'event' is a C string representing the event name.
  * 'key' is a Redis object representing the key name.
  * 'dbid' is the database ID where the key lives.  */
-void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
+void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) { // key上会产生事件
     sds chan;
     robj *chanobj, *eventobj;
     int len = -1;
@@ -115,15 +115,15 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
 
     eventobj = createStringObject(event,strlen(event));
 
-    /* __keyspace@<db>__:<key> <event> notifications. */
+    /* __keyspace@<db>__:<key> <event> notifications. */ // 可以由客户端订阅内部key变化的主题（SUBSCRIBE __keyspace@0__:k1），然后一旦有变化，这个消息会被server推送给client. 也可以模式订阅：PSUBSCRIBE __key*
     if (server.notify_keyspace_events & NOTIFY_KEYSPACE) {
-        chan = sdsnewlen("__keyspace@",11);
+        chan = sdsnewlen("__keyspace@",11); // 默认即使客户端订阅了__keyspace@0__:KEY也收不到KEY的更改消息，但可以通过修改配置文件，是这个修改被客户端所感知：PUBLISH __keyspace@0__:foo del, 或者PUBLISH __keyevent@0__:del foo Redis运行时可以修改,cli执行：CONFIG set notify keyspace events "KEgx" 然后可以用CONFIG get notify keyspace events 检查
         len = ll2string(buf,sizeof(buf),dbid);
         chan = sdscatlen(chan, buf, len);
-        chan = sdscatlen(chan, "__:", 3);
+        chan = sdscatlen(chan, "__:", 3);  // 发布订阅名称
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-        pubsubPublishMessage(chanobj, eventobj);
+        pubsubPublishMessage(chanobj, eventobj);  // 分布式锁在cli中的命令：set k1 uuid ex 10 nx  这样似乎可以做延迟消息？
         decrRefCount(chanobj);
     }
 

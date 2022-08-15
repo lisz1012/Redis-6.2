@@ -55,7 +55,7 @@ typedef struct dictEntry {
         int64_t s64;
         double d;
     } v;
-    struct dictEntry *next;  // 单链表
+    struct dictEntry *next;  // 只有next，单链表
 } dictEntry;
 
 typedef struct dictType {

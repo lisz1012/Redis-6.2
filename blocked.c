@@ -170,7 +170,7 @@ void queueClientForReprocessing(client *c) {
      * blocking operation, don't add back it into the list multiple times. */
     if (!(c->flags & CLIENT_UNBLOCKED)) {
         c->flags |= CLIENT_UNBLOCKED;
-        listAddNodeTail(server.unblocked_clients,c);
+        listAddNodeTail(server.unblocked_clients,c);  // 可以给客户端返回了
     }
 }
 
@@ -206,10 +206,10 @@ void unblockClient(client *c) {
      * we'll process new commands in its query buffer ASAP. */
     server.blocked_clients--;
     server.blocked_clients_by_type[c->btype]--;
-    c->flags &= ~CLIENT_BLOCKED;
+    c->flags &= ~CLIENT_BLOCKED;  // 标志位修正回来
     c->btype = BLOCKED_NONE;
     removeClientFromTimeoutTable(c);
-    queueClientForReprocessing(c);
+    queueClientForReprocessing(c);  // 可以给客户端返回了
 }
 
 /* This function gets called when a blocked client timed out in order to
@@ -503,12 +503,12 @@ void serveClientsBlockedOnKeyByModule(readyList *rl) {
 
     /* We serve clients in the same order they blocked for
      * this key, from the first blocked to the last. */
-    de = dictFind(rl->db->blocking_keys,rl->key);
+    de = dictFind(rl->db->blocking_keys,rl->key);  // rl->db->blocking_keys的entry是： key -> client组成的链表
     if (de) {
-        list *clients = dictGetVal(de);
+        list *clients = dictGetVal(de); // 得到链表
         int numclients = listLength(clients);
 
-        while(numclients--) {
+        while(numclients--) { // listRotateHeadToTail会使得这个循环环形遍历数组，但 numclients 控制着只遍历一圈
             listNode *clientnode = listFirst(clients);
             client *receiver = clientnode->value;
 
@@ -591,11 +591,11 @@ void handleClientsBlockedOnKeys(void) {
             server.fixed_time_expire++;
             updateCachedTime(0);
 
-            /* Serve clients blocked on the key. */
+            /* Serve clients blocked on the key. */ // 拿着已经ready的key 去找value
             robj *o = lookupKeyWrite(rl->db,rl->key);
 
             if (o != NULL) {
-                if (o->type == OBJ_LIST)
+                if (o->type == OBJ_LIST) // 可以专门看一个类型的
                     serveClientsBlockedOnListKey(o,rl);
                 else if (o->type == OBJ_ZSET)
                     serveClientsBlockedOnSortedSetKey(o,rl);
@@ -644,7 +644,7 @@ void handleClientsBlockedOnKeys(void) {
  * stream keys, we also provide an array of streamID structures: clients will
  * be unblocked only when items with an ID greater or equal to the specified
  * one is appended to the stream. */
-void blockForKeys(client *c, int btype, robj **keys, int numkeys, mstime_t timeout, robj *target, struct listPos *listpos, streamID *ids) {
+void blockForKeys(client *c, int btype, robj **keys, int numkeys, mstime_t timeout, robj *target, struct listPos *listpos, streamID *ids) { // 能进到这里来，说明一定没有数据
     dictEntry *de;
     list *l;
     int j;
@@ -677,7 +677,7 @@ void blockForKeys(client *c, int btype, robj **keys, int numkeys, mstime_t timeo
 
             /* For every key we take a list of clients blocked for it */
             l = listCreate();
-            retval = dictAdd(c->db->blocking_keys,keys[j],l);
+            retval = dictAdd(c->db->blocking_keys,keys[j],l);  // 把客户端和他阻塞等待的key丢到字典里，keys和numkeys是对应好了的。c是个client结构体，存储了客户端的元数据信息，这里它就让服务端感知到了客户端正在阻塞等待哪些keys
             incrRefCount(keys[j]);
             serverAssertWithInfo(c,keys[j],retval == DICT_OK);
         } else {
@@ -686,7 +686,7 @@ void blockForKeys(client *c, int btype, robj **keys, int numkeys, mstime_t timeo
         listAddNodeTail(l,c);
         bki->listnode = listLast(l);
     }
-    blockClient(c,btype);
+    blockClient(c,btype);  // 这里就设置为阻塞了lpush或者rpush可以解开这个状态
 }
 
 /* Unblock a client that's waiting in a blocking operation such as BLPOP.
@@ -763,7 +763,7 @@ void signalKeyAsReady(redisDb *db, robj *key, int type) {
     }
 
     /* No clients blocking for this key? No need to queue it. */
-    if (dictFind(db->blocking_keys,key) == NULL) return;
+    if (dictFind(db->blocking_keys,key) == NULL) return; // db->blocking_keys的每个entry是key->客户端所组成的链表
 
     /* Key was already signaled? No need to queue it again. */
     if (dictFind(db->ready_keys,key) != NULL) return;
@@ -773,12 +773,12 @@ void signalKeyAsReady(redisDb *db, robj *key, int type) {
     rl->key = key;
     rl->db = db;
     incrRefCount(key);
-    listAddNodeTail(server.ready_keys,rl);
+    listAddNodeTail(server.ready_keys,rl);  // 在客户端命令处理函数call刚执行完了之后，就要检查这个：server.c 4295 行
 
     /* We also add the key in the db->ready_keys dictionary in order
      * to avoid adding it multiple times into a list with a simple O(1)
      * check. */
     incrRefCount(key);
-    serverAssert(dictAdd(db->ready_keys,key,NULL) == DICT_OK);
+    serverAssert(dictAdd(db->ready_keys,key,NULL) == DICT_OK); // 客户端元数据里面也要有这个key
 }
 

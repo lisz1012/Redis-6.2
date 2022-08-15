@@ -138,11 +138,11 @@ int pubsubSubscribeChannel(client *c, robj *channel) {
     int retval = 0;
 
     /* Add the channel to the client -> channels hash table */
-    if (dictAdd(c->pubsub_channels,channel,NULL) == DICT_OK) {
+    if (dictAdd(c->pubsub_channels,channel,NULL) == DICT_OK) { // 这里是改了client的元数据
         retval = 1;
         incrRefCount(channel);
         /* Add the client to the channel -> list of clients hash table */
-        de = dictFind(server.pubsub_channels,channel);
+        de = dictFind(server.pubsub_channels,channel);  // server与DB同级的，而不是DB下面的dict
         if (de == NULL) {
             clients = listCreate();
             dictAdd(server.pubsub_channels,channel,clients);
@@ -150,7 +150,7 @@ int pubsubSubscribeChannel(client *c, robj *channel) {
         } else {
             clients = dictGetVal(de);
         }
-        listAddNodeTail(clients,c);
+        listAddNodeTail(clients,c);  // 无论是新建还是取出链表，最后都要加入这个client进去
     }
     /* Notify the client */
     addReplyPubsubSubscribed(c,channel);
@@ -293,7 +293,7 @@ int pubsubPublishMessage(robj *channel, robj *message) {
     listIter li;
 
     /* Send to clients listening for that channel */
-    de = dictFind(server.pubsub_channels,channel);
+    de = dictFind(server.pubsub_channels,channel);  // pubsub_channels是和DB同级的，key是channel，他所对应的是订阅key的client链表
     if (de) {
         list *list = dictGetVal(de);
         listNode *ln;
@@ -302,7 +302,7 @@ int pubsubPublishMessage(robj *channel, robj *message) {
         listRewind(list,&li);
         while ((ln = listNext(&li)) != NULL) {
             client *c = ln->value;
-            addReplyPubsubMessage(c,channel,message);
+            addReplyPubsubMessage(c,channel,message); // 把消息直接转发给各个客户端，并不在server存储
             receivers++;
         }
     }

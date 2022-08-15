@@ -195,7 +195,7 @@ void dbAdd(redisDb *db, robj *key, robj *val) {
     int retval = dictAdd(db->dict, copy, val);
 
     serverAssertWithInfo(NULL,key,retval == DICT_OK);
-    signalKeyAsReady(db, key, val->type);
+    signalKeyAsReady(db, key, val->type);  // 这里告诉如果有阻塞等待的客户端，他所关注的key有结果了
     if (server.cluster_enabled) slotToKeyAdd(key->ptr);
 }
 
