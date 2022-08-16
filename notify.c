@@ -123,7 +123,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) { // key上
         chan = sdscatlen(chan, "__:", 3);  // 发布订阅名称
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-        pubsubPublishMessage(chanobj, eventobj);  // 分布式锁在cli中的命令：set k1 uuid ex 10 nx  这样似乎可以做延迟消息？？
+        pubsubPublishMessage(chanobj, eventobj);  // 分布式锁在cli中的命令：set k1 uuid ex 10 nx  这样似乎可以做延迟消息？？？
         decrRefCount(chanobj);
     }
 
