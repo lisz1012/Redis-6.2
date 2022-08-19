@@ -67,12 +67,12 @@ void queueMultiCommand(client *c) {
         return;
 
     c->mstate.commands = zrealloc(c->mstate.commands,
-            sizeof(multiCmd)*(c->mstate.count+1));
-    mc = c->mstate.commands+c->mstate.count;
+            sizeof(multiCmd)*(c->mstate.count+1)); // 每新来一个命令，就整体重新分配一次内存空间，比上一次增大1个multiCmd的大小
+    mc = c->mstate.commands+c->mstate.count;  // mc是新加进来的这一个，用count指针表明把它放在这里
     mc->cmd = c->cmd;
     mc->argc = c->argc;
-    mc->argv = zmalloc(sizeof(robj*)*c->argc);
-    memcpy(mc->argv,c->argv,sizeof(robj*)*c->argc);
+    mc->argv = zmalloc(sizeof(robj*)*c->argc);  // 每个sizeof(robj*) 这么大，一共c->argc个
+    memcpy(mc->argv,c->argv,sizeof(robj*)*c->argc);  // 拷贝参数，其实就是把c->cmd/argv拷贝到mstate（队列或者更确切的说是个数组）中去，但是并没有真正执行它们‼️ 真正的执行，见execCommand函数
     for (j = 0; j < c->argc; j++)
         incrRefCount(mc->argv[j]);
     c->mstate.count++;
@@ -94,12 +94,12 @@ void flagTransaction(client *c) {
         c->flags |= CLIENT_DIRTY_EXEC;
 }
 
-void multiCommand(client *c) {
+void multiCommand(client *c) { // 执行了watch之后才能执行multi
     if (c->flags & CLIENT_MULTI) {
         addReplyError(c,"MULTI calls can not be nested");
         return;
     }
-    c->flags |= CLIENT_MULTI;
+    c->flags |= CLIENT_MULTI;  // 这里先标记，回头会在 server.c 4142、4284行对这个标志位进行检查，以执行事务性代码
 
     addReply(c,shared.ok);
 }
@@ -170,7 +170,7 @@ void execCommand(client *c) {
 
     /* EXEC with expired watched key is disallowed*/
     if (isWatchedKeyExpired(c)) {
-        c->flags |= (CLIENT_DIRTY_CAS);
+        c->flags |= (CLIENT_DIRTY_CAS); // expire也可以看做是一种脏，过期和被修改这两种不处理的逻辑就合并了
     }
 
     /* Check if we need to abort the EXEC because:
@@ -179,7 +179,7 @@ void execCommand(client *c) {
      * A failed EXEC in the first case returns a multi bulk nil object
      * (technically it is not an error but a special behavior), while
      * in the second an EXECABORT error is returned. */
-    if (c->flags & (CLIENT_DIRTY_CAS | CLIENT_DIRTY_EXEC)) {
+    if (c->flags & (CLIENT_DIRTY_CAS | CLIENT_DIRTY_EXEC)) { // CLIENT_DIRTY_CAS这个标志位，当又其他的client改了某个被watch的key的时候，就会被置为1，见 genericSetKey 中的 signalModifiedKey 中的 touchWatchedKey（还是在本文件中，372行）
         if (c->flags & CLIENT_DIRTY_EXEC) {
             addReplyErrorObject(c, shared.execaborterr);
         } else {
@@ -204,7 +204,7 @@ void execCommand(client *c) {
     orig_argc = c->argc;
     orig_cmd = c->cmd;
     addReplyArrayLen(c,c->mstate.count);
-    for (j = 0; j < c->mstate.count; j++) {
+    for (j = 0; j < c->mstate.count; j++) { // 从前往后遍历command数组，逐个依次执行，这里才真正执行call，在其中每条执行完了做aof和replica到slaves
         c->argc = c->mstate.commands[j].argc;
         c->argv = c->mstate.commands[j].argv;
         c->cmd = c->mstate.commands[j].cmd;
@@ -308,10 +308,10 @@ void watchForKey(client *c, robj *key) {
             return; /* Key already watched */
     }
     /* This key is not already watched in this DB. Let's add it */
-    clients = dictFetchValue(c->db->watched_keys,key);
+    clients = dictFetchValue(c->db->watched_keys,key); // 一个key被多个client watch
     if (!clients) {
         clients = listCreate();
-        dictAdd(c->db->watched_keys,key,clients);
+        dictAdd(c->db->watched_keys,key,clients); // 加入
         incrRefCount(key);
     }
     listAddNodeTail(clients,c);
@@ -374,14 +374,14 @@ void touchWatchedKey(redisDb *db, robj *key) {
     listIter li;
     listNode *ln;
 
-    if (dictSize(db->watched_keys) == 0) return;
-    clients = dictFetchValue(db->watched_keys, key);
+    if (dictSize(db->watched_keys) == 0) return; // 没有任何被watched key，直接返回
+    clients = dictFetchValue(db->watched_keys, key); // 一个key可能被链表中的多个clients watch着
     if (!clients) return;
 
     /* Mark all the clients watching this key as CLIENT_DIRTY_CAS */
     /* Check if we are already watching for this key */
     listRewind(clients,&li);
-    while((ln = listNext(&li))) {
+    while((ln = listNext(&li))) {  // key已经被set过了，挨个标记watch着它的客户端的flags为已经脏了，通知他们一下下
         client *c = listNodeValue(ln);
 
         c->flags |= CLIENT_DIRTY_CAS;
@@ -420,7 +420,7 @@ void touchAllWatchedKeysInDb(redisDb *emptied, redisDb *replaced_with) {
     dictReleaseIterator(di);
 }
 
-void watchCommand(client *c) {
+void watchCommand(client *c) { // watch的目的就是有点CAS的感觉，只要一个脏了，就不执行了
     int j;
 
     if (c->flags & CLIENT_MULTI) {
