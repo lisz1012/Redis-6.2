@@ -179,7 +179,7 @@ void execCommand(client *c) {
      * A failed EXEC in the first case returns a multi bulk nil object
      * (technically it is not an error but a special behavior), while
      * in the second an EXECABORT error is returned. */
-    if (c->flags & (CLIENT_DIRTY_CAS | CLIENT_DIRTY_EXEC)) { // CLIENT_DIRTY_CAS这个标志位，当又其他的client改了某个被watch的key的时候，就会被置为1，见 genericSetKey 中的 signalModifiedKey 中的 touchWatchedKey（还是在本文件中，372行^_^）
+    if (c->flags & (CLIENT_DIRTY_CAS | CLIENT_DIRTY_EXEC)) { // CLIENT_DIRTY_CAS这个标志位，当又其他的client改了某个被watch的key的时候，就会被置为1，见 genericSetKey 中的 signalModifiedKey 中的 touchWatchedKey（还是在本文件中，372行 ^_^）
         if (c->flags & CLIENT_DIRTY_EXEC) {
             addReplyErrorObject(c, shared.execaborterr);
         } else {
