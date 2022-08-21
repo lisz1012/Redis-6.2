@@ -55,7 +55,7 @@ void zlibc_free(void *ptr) {
 #if defined(__sun) || defined(__sparc) || defined(__sparc__)
 #define PREFIX_SIZE (sizeof(long long))
 #else
-#define PREFIX_SIZE (sizeof(size_t))
+#define PREFIX_SIZE (sizeof(size_t))  // 依据不同的OS平台变化，存储实际申请的空间大小
 #endif
 #define ASSERT_NO_SIZE_OVERFLOW(sz) assert((sz) + PREFIX_SIZE > (sz))
 #endif
@@ -107,10 +107,10 @@ void *ztrymalloc_usable(size_t size, size_t *usable) {
     if (usable) *usable = size;
     return ptr;
 #else
-    *((size_t*)ptr) = size;
+    *((size_t*)ptr) = size;  // 总大小放在ptr所指向的内存的起始位置，相当于自定义协议里面的header存的size元数据，后面存储真正要存的实际数据
     update_zmalloc_stat_alloc(size+PREFIX_SIZE);
     if (usable) *usable = size;
-    return (char*)ptr+PREFIX_SIZE;
+    return (char*)ptr+PREFIX_SIZE;  // 返回的指针跳过size元数据，直接指向为真正数据所申请的空间（真是数据的大小可能小于这个空间）
 #endif
 }
 
@@ -230,8 +230,8 @@ void *ztryrealloc_usable(void *ptr, size_t size, size_t *usable) {
     return newptr;
 #else
     realptr = (char*)ptr-PREFIX_SIZE;
-    oldsize = *((size_t*)realptr);
-    newptr = realloc(realptr,size+PREFIX_SIZE);
+    oldsize = *((size_t*)realptr);  // 格子的大小
+    newptr = realloc(realptr,size+PREFIX_SIZE);  // 外界如果引用了realptr，能保证扩容且地址不变
     if (newptr == NULL) {
         if (usable) *usable = 0;
         return NULL;
@@ -239,9 +239,9 @@ void *ztryrealloc_usable(void *ptr, size_t size, size_t *usable) {
 
     *((size_t*)newptr) = size;
     update_zmalloc_stat_free(oldsize);
-    update_zmalloc_stat_alloc(size);
+    update_zmalloc_stat_alloc(size);  // 删老增新
     if (usable) *usable = size;
-    return (char*)newptr+PREFIX_SIZE;
+    return (char*)newptr+PREFIX_SIZE;  // 跟zmalloc一样
 #endif
 }
 
