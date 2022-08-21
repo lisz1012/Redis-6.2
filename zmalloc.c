@@ -239,7 +239,7 @@ void *ztryrealloc_usable(void *ptr, size_t size, size_t *usable) {
 
     *((size_t*)newptr) = size;
     update_zmalloc_stat_free(oldsize);
-    update_zmalloc_stat_alloc(size);  // 删老增新
+    update_zmalloc_stat_alloc(size);  // 删老增新！
     if (usable) *usable = size;
     return (char*)newptr+PREFIX_SIZE;  // 跟zmalloc一样
 #endif
