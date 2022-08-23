@@ -460,7 +460,7 @@ robj *tryObjectEncoding(robj *o) {
      * Note that we are sure that a string larger than 20 chars is not
      * representable as a 32 nor 64 bit integer. */
     len = sdslen(s);
-    if (len <= 20 && string2l(s,len,&value)) { // 什么时候value是int？就是这个条件符合的时候，尝试把字符串转成long，看成不成功。int更省空间。OBJECT encoding key 看编码
+    if (len <= 20 && string2l(s,len,&value)) { // 什么时候value是int？就是这个条件符合的时候，尝试把字符串转成long，看成不成功。int更省空间。OBJECT encoding key 看编码。
         /* This object is encodable as a long. Try to use a shared object.
          * Note that we avoid using shared integers when maxmemory is used
          * because every object needs to have a private LRU field for the LRU
