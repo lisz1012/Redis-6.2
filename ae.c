@@ -154,7 +154,7 @@ void aeStop(aeEventLoop *eventLoop) {
     eventLoop->stop = 1;
 }
 
-int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask, // FileEvent(网络IO Event)和TimeEvent都是被Eventloop处理的
+int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask, // FileEvent(网络IO Event)和TimeEvent都是被Eventloop处理的。
         aeFileProc *proc, void *clientData)
 {
     if (fd >= eventLoop->setsize) {
