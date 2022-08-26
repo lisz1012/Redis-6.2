@@ -161,7 +161,7 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask, // FileEvent(网
         errno = ERANGE;
         return AE_ERR;
     }
-    aeFileEvent *fe = &eventLoop->events[fd]; // 监听的所有客户端的读和写都会产生事件，一文件描述符作为下标
+    aeFileEvent *fe = &eventLoop->events[fd]; // 监听的所有客户端的读和写都会产生事件，一文件描述符作为下标。
 
     if (aeApiAddEvent(eventLoop, fd, mask) == -1)
         return AE_ERR;
