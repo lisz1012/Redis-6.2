@@ -134,7 +134,7 @@ sds _sdsnewlen(const void *init, size_t initlen, int trymalloc) {
             SDS_HDR_VAR(8,s);
             sh->len = initlen;
             sh->alloc = usable;
-            *fp = type; // 2倍的type值就是结构体中，它前面的len和alloc变量所占结构体中的宽度
+            *fp = type; // 2倍的type值就是结构体中，它前面的len和alloc变量所占结构体中的宽度。
             break;
         }
         case SDS_TYPE_16: {
