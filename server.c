@@ -3026,7 +3026,7 @@ int createSocketAcceptHandler(socketFds *sfd, aeFileProc *accept_handler) {
     int j;
 
     for (j = 0; j < sfd->count; j++) {
-        if (aeCreateFileEvent(server.el, sfd->fd[j], AE_READABLE, accept_handler,NULL) == AE_ERR) {
+        if (aeCreateFileEvent(server.el, sfd->fd[j], AE_READABLE, accept_handler,NULL) == AE_ERR) { // 创建事件的同时，会绑定其处理函数，accept并无数据发过来，所以clientData参数为NULL。这里设置了mask、绑定了处理函数、关在了要传输的数据，然后把事件放到了aeEventLoop.events列表中，但并没有执行处理函数，会等待被事件循环器调起
             /* Rollback */
             for (j = j-1; j >= 0; j--) aeDeleteFileEvent(server.el, sfd->fd[j], AE_READABLE);
             return C_ERR;
@@ -3074,7 +3074,7 @@ int listenToPort(int port, socketFds *sfd) {
             sfd->fd[sfd->count] = anetTcp6Server(server.neterr,port,addr,server.tcp_backlog);
         } else {
             /* Bind IPv4 address. */
-            sfd->fd[sfd->count] = anetTcpServer(server.neterr,port,addr,server.tcp_backlog);
+            sfd->fd[sfd->count] = anetTcpServer(server.neterr,port,addr,server.tcp_backlog); // C语言版系统IO socket，包括socket、bind、listen等系统调用
         }
         if (sfd->fd[sfd->count] == ANET_ERR) {
             int net_errno = errno;
@@ -3092,7 +3092,7 @@ int listenToPort(int port, socketFds *sfd) {
             closeSocketListeners(sfd);
             return C_ERR;
         }
-        anetNonBlock(NULL,sfd->fd[sfd->count]);
+        anetNonBlock(NULL,sfd->fd[sfd->count]);  // 设置非阻塞IO
         anetCloexec(sfd->fd[sfd->count]);
         sfd->count++;
     }
@@ -3208,7 +3208,7 @@ void initServer(void) {
     adjustOpenFilesLimit();
     const char *clk_msg = monotonicInit();
     serverLog(LL_NOTICE, "monotonic clock: %s", clk_msg);
-    server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);
+    server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR); // 把"反应堆"（时间循环器）初始化好
     if (server.el == NULL) {
         serverLog(LL_WARNING,
             "Failed creating the event loop. Error message: '%s'",
@@ -3219,7 +3219,7 @@ void initServer(void) {
 
     /* Open the TCP listening socket for the user commands. */
     if (server.port != 0 &&
-        listenToPort(server.port,&server.ipfd) == C_ERR) {
+        listenToPort(server.port,&server.ipfd) == C_ERR) { // 底层会调用socket/bind/listen等系统调用，6379端口打开了
         /* Note: the following log text is matched by the test suite. */
         serverLog(LL_WARNING, "Failed listening on port %u (TCP), aborting.", server.port);
         exit(1);
@@ -3324,13 +3324,13 @@ void initServer(void) {
 
     /* Create an event handler for accepting new connections in TCP and Unix
      * domain sockets. */
-    if (createSocketAcceptHandler(&server.ipfd, acceptTcpHandler) != C_OK) { // Eventloop绑定了Listen的file event
+    if (createSocketAcceptHandler(&server.ipfd, acceptTcpHandler) != C_OK) { // Eventloop绑定了Listen的file event，每来一个客户端要去接受他
         serverPanic("Unrecoverable error creating TCP socket accept handler.");
     }
     if (createSocketAcceptHandler(&server.tlsfd, acceptTLSHandler) != C_OK) {
         serverPanic("Unrecoverable error creating TLS socket accept handler.");
     }
-    if (server.sofd > 0 && aeCreateFileEvent(server.el,server.sofd,AE_READABLE,
+    if (server.sofd > 0 && aeCreateFileEvent(server.el,server.sofd,AE_READABLE,  // 与timeEvent对应，eventloop就在处理这两种事件
         acceptUnixHandler,NULL) == AE_ERR) serverPanic("Unrecoverable error creating server.sofd file event.");
 
 
@@ -6293,7 +6293,7 @@ int main(int argc, char **argv) {
     /* We need to init sentinel right now as parsing the configuration file
      * in sentinel mode will have the effect of populating the sentinel
      * data structures with master nodes to monitor. */
-    if (server.sentinel_mode) {
+    if (server.sentinel_mode) { // 哨兵模式怎么办？不存储数据，只是一个"协调者"
         initSentinelConfig();
         initSentinel();
     }

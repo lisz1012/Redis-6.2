@@ -69,7 +69,7 @@ aeEventLoop *aeCreateEventLoop(int setsize) {
 
     monotonicInit();    /* just in case the calling app didn't initialize */
 
-    if ((eventLoop = zmalloc(sizeof(*eventLoop))) == NULL) goto err;
+    if ((eventLoop = zmalloc(sizeof(*eventLoop))) == NULL) goto err;  // 相当于new对象了，申请一段连续空间
     eventLoop->events = zmalloc(sizeof(aeFileEvent)*setsize);  // 所有的客户端连接
     eventLoop->fired = zmalloc(sizeof(aeFiredEvent)*setsize);  // epoll_wait得到的有事件的客户端连接，mask表明类型
     if (eventLoop->events == NULL || eventLoop->fired == NULL) goto err;
@@ -161,12 +161,12 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask, // FileEvent(网
         errno = ERANGE;
         return AE_ERR;
     }
-    aeFileEvent *fe = &eventLoop->events[fd]; // 监听的所有客户端的读和写都会产生事件，一文件描述符作为下标
+    aeFileEvent *fe = &eventLoop->events[fd]; // 监听的所有客户端的读和写都会产生事件，放入events数组，以文件描述符作为下标
 
     if (aeApiAddEvent(eventLoop, fd, mask) == -1)
         return AE_ERR;
     fe->mask |= mask;
-    if (mask & AE_READABLE) fe->rfileProc = proc;
+    if (mask & AE_READABLE) fe->rfileProc = proc;  // 给文件事件绑定传进来的指定的处理函数，有可能是读事件，也有可能是写事件
     if (mask & AE_WRITABLE) fe->wfileProc = proc;
     fe->clientData = clientData;
     if (fd > eventLoop->maxfd)

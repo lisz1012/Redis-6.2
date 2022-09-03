@@ -69,7 +69,7 @@ typedef void aeEventFinalizerProc(struct aeEventLoop *eventLoop, void *clientDat
 typedef void aeBeforeSleepProc(struct aeEventLoop *eventLoop);
 
 /* File event structure */
-typedef struct aeFileEvent {
+typedef struct aeFileEvent { // 管着IO事件：accept/read/write
     int mask; /* one of AE_(READABLE|WRITABLE|BARRIER) */
     aeFileProc *rfileProc;  // 读IO的函数指针
     aeFileProc *wfileProc;  // 写IO的函数指针
@@ -99,9 +99,9 @@ typedef struct aeFiredEvent {
 typedef struct aeEventLoop {
     int maxfd;   /* highest file descriptor currently registered */
     int setsize; /* max number of file descriptors tracked */
-    long long timeEventNextId;
-    aeFileEvent *events; /* Registered events 所有注册的事件 */
-    aeFiredEvent *fired; /* Fired events 有事情发生的事件：fd及其事件的性质(mask) */
+    long long timeEventNextId; /* 16字节 */
+    aeFileEvent *events; /* Registered events 所有注册的事件，其实是个数组，连续存储在一起 */
+    aeFiredEvent *fired; /* Fired events 有事情发生的事件：fd及其事件的性质(mask)，也是个数组 */
     aeTimeEvent *timeEventHead;
     int stop;
     void *apidata; /* This is used for polling API specific data */
