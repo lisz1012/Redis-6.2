@@ -3511,7 +3511,7 @@ int io_threads_op;      /* IO_THREADS_OP_WRITE or IO_THREADS_OP_READ. */
 /* This is the list of clients each thread will serve when threaded I/O is
  * used. We spawn io_threads_num-1 threads, since one is the main thread
  * itself. */
-list *io_threads_list[IO_THREADS_MAX_NUM];
+list *io_threads_list[IO_THREADS_MAX_NUM];  // 这是个由list * 元素组成的数组，而list中的每个元素又是client *，即这个IO线程要处理的clients
 
 static inline unsigned long getIOPendingCount(int i) {
     unsigned long count = 0;
@@ -3750,7 +3750,7 @@ int postponeClientRead(client *c) {
         !(c->flags & (CLIENT_MASTER|CLIENT_SLAVE|CLIENT_PENDING_READ|CLIENT_BLOCKED))) // c->flag上的这些标识位都为0
     {
         c->flags |= CLIENT_PENDING_READ; // 下一次被caller的if调用到就不会进来了，会return 0；
-        listAddNodeHead(server.clients_pending_read,c); // 分配。在头部插入节点
+        listAddNodeHead(server.clients_pending_read,c); // 分配。在头部插入节点, 会在handleClientsWithPendingReadsUsingThreads函数中检查server.clients_pending_read是否唯恐，并做出相应处理
         return 1;
     } else {
         return 0;
@@ -3763,7 +3763,7 @@ int postponeClientRead(client *c) {
  * the queue using the I/O threads, and process them in order to accumulate
  * the reads in the buffers, and also parse the first command available
  * rendering it in the client structures. */
-int handleClientsWithPendingReadsUsingThreads(void) {
+int handleClientsWithPendingReadsUsingThreads(void) { // 被beforeSleep（也就是epoll_wait之前）调用，而beforeSleep被在initServer中注册给了eventLoop->beforesleep。下面分配了客户端给各个IO线程，sleep(epoll_wait)醒来之后
     if (!server.io_threads_active || !server.io_threads_do_reads) return 0;
     int processed = listLength(server.clients_pending_read);
     if (processed == 0) return 0;
@@ -3775,8 +3775,8 @@ int handleClientsWithPendingReadsUsingThreads(void) {
     int item_id = 0;
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);
-        int target_id = item_id % server.io_threads_num;
-        listAddNodeTail(io_threads_list[target_id],c);
+        int target_id = item_id % server.io_threads_num;  // 轮询分配clients给各个IO线程
+        listAddNodeTail(io_threads_list[target_id],c);  // 每个IO线程通过其下标就可以找到对应要处理的clients，队列，插到最后。与此同时，各个IO thread可能还在跑着呢，下面第3800行阻塞等待他们完成
         item_id++;
     }
 
@@ -3789,7 +3789,7 @@ int handleClientsWithPendingReadsUsingThreads(void) {
     }
 
     /* Also use the main thread to process a slice of clients. */
-    listRewind(io_threads_list[0],&li);
+    listRewind(io_threads_list[0],&li);  // io_threads_list[0]就是把主线程拿了出来
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);
         readQueryFromClient(c->conn);
@@ -3797,7 +3797,7 @@ int handleClientsWithPendingReadsUsingThreads(void) {
     listEmpty(io_threads_list[0]);
 
     /* Wait for all the other threads to end their work. */
-    while(1) {
+    while(1) {  // 主线程卡在这里，忙等各个IO线程完成工作
         unsigned long pending = 0;
         for (int j = 1; j < server.io_threads_num; j++)
             pending += getIOPendingCount(j);
@@ -3805,21 +3805,21 @@ int handleClientsWithPendingReadsUsingThreads(void) {
     }
 
     /* Run the list of clients again to process the new buffers. */
-    while(listLength(server.clients_pending_read)) {
+    while(listLength(server.clients_pending_read)) { // 主线程遍历有未执行指令的客户端
         ln = listFirst(server.clients_pending_read);
         client *c = listNodeValue(ln);
         c->flags &= ~CLIENT_PENDING_READ;
         listDelNode(server.clients_pending_read,ln);
 
         serverAssert(!(c->flags & CLIENT_BLOCKED));
-        if (processPendingCommandsAndResetClient(c) == C_ERR) {
+        if (processPendingCommandsAndResetClient(c) == C_ERR) {  // 这里面会执行客户端发过来的指令
             /* If the client is no longer valid, we avoid
              * processing the client later. So we just go
              * to the next. */
             continue;
         }
 
-        processInputBuffer(c);
+        processInputBuffer(c);  // 这里面也会执行客户端发过来的指令，与上面不同的是，由于每个client还有一个c->querybuf，所以这里面处理的是querybuf中后来积累的指令，先到先服务
 
         /* We may have pending replies if a thread readQueryFromClient() produced
          * replies and did not install a write handler (it can't).

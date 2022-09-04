@@ -110,15 +110,15 @@ static int aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp) {
     aeApiState *state = eventLoop->apidata;
     int retval, numevents = 0;
 
-    retval = epoll_wait(state->epfd,state->events,eventLoop->setsize, // 第二个参数是 struct epoll_event结构指针，用来从内核得到事件的集合。epoll_wait返回值为请求的I / O准备就绪的文件描述符的数目；如果在请求的超时毫秒内没有文件描述符准备就绪，则返回零
-            tvp ? (tvp->tv_sec*1000 + (tvp->tv_usec + 999)/1000) : -1);
+    retval = epoll_wait(state->epfd,state->events,eventLoop->setsize, // 第二个参数是 struct epoll_event结构指针，用来从内核得到事件的集合。epoll_wait返回值为请求的I / O准备就绪的文件描述符的数目；如果在请求的超时毫秒内没有文件描述符准备就绪，则返回零。state->events装着发生的感兴趣的事件，被epoll_wait系调填充
+            tvp ? (tvp->tv_sec*1000 + (tvp->tv_usec + 999)/1000) : -1);  // epoll_wait是要block一段时间的：https://man7.org/linux/man-pages/man2/epoll_wait.2.html
     if (retval > 0) {
         int j;
 
         numevents = retval;
         for (j = 0; j < numevents; j++) {
             int mask = 0;
-            struct epoll_event *e = state->events+j;
+            struct epoll_event *e = state->events+j;  // 挨个儿拿出发生的事件，下面👇把他们标记好连接fd和事件类型，供eventLoop后续处理（aftersleep）
 
             if (e->events & EPOLLIN) mask |= AE_READABLE;
             if (e->events & EPOLLOUT) mask |= AE_WRITABLE;

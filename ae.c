@@ -388,11 +388,11 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
         }
 
         if (eventLoop->beforesleep != NULL && flags & AE_CALL_BEFORE_SLEEP) // beforesleep是个函数指针
-            eventLoop->beforesleep(eventLoop);
+            eventLoop->beforesleep(eventLoop);  // eventLoop->beforesleep函数指针指向了server.c的beforeSleep函数
 
         /* Call the multiplexing API, will return only on timeout or when
          * some event fires. */
-        numevents = aeApiPoll(eventLoop, tvp); // 见 ae_epoll.c 109行， sleep在这儿了，epoll_wait
+        numevents = aeApiPoll(eventLoop, tvp); // 见 ae_epoll.c 109行， sleep在这儿了，epoll_wait。所以上面要先调起beforesleep函数
 
         /* After sleep callback. */
         if (eventLoop->aftersleep != NULL && flags & AE_CALL_AFTER_SLEEP)
