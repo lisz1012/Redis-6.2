@@ -3523,7 +3523,7 @@ static inline void setIOPendingCount(int i, unsigned long count) {
     atomicSetWithSync(io_threads_pending[i], count);
 }
 
-void *IOThreadMain(void *myid) { // IO Thread只负责读写行为。读出来client的输入，等业务线程处理完了，他们再把结果写回客户端
+void *IOThreadMain(void *myid) { // 刚启动时初始化，被server.c的initServerLast调用。IO Thread只负责读写行为。读出来client的输入，等业务线程处理完了，他们再把结果写回客户端。
     /* The ID is the thread number (from 0 to server.iothreads_num-1), and is
      * used by the thread to just manipulate a single sub-array of clients. */
     long id = (unsigned long)myid;
@@ -3558,7 +3558,7 @@ void *IOThreadMain(void *myid) { // IO Thread只负责读写行为。读出来cl
             client *c = listNodeValue(ln);
             if (io_threads_op == IO_THREADS_OP_WRITE) { // 需要写给客户端？从这个if和if else可以看出来，IO线程负责从client读入和写回client
                 writeToClient(c,0);
-            } else if (io_threads_op == IO_THREADS_OP_READ) { // 还是从客户端读取？
+            } else if (io_threads_op == IO_THREADS_OP_READ) { // 还是从客户端读取？多线程
                 readQueryFromClient(c->conn);  // 最值钱的方法！最值钱的方法！！最值钱的方法！！！
             } else {
                 serverPanic("io_threads_op value is unknown");
