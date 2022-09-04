@@ -135,7 +135,7 @@ void connSetPrivateData(connection *conn, void *data) {
 
 /* Get the associated private data pointer */
 void *connGetPrivateData(connection *conn) {
-    return conn->private_data;
+    return conn->private_data; // 有可能返回一个client
 }
 
 /* ------ Pure socket connections ------- */

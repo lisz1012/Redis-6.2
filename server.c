@@ -3026,7 +3026,7 @@ int createSocketAcceptHandler(socketFds *sfd, aeFileProc *accept_handler) {
     int j;
 
     for (j = 0; j < sfd->count; j++) {
-        if (aeCreateFileEvent(server.el, sfd->fd[j], AE_READABLE, accept_handler,NULL) == AE_ERR) { // 创建事件的同时，会绑定其处理函数，accept并无数据发过来，所以clientData参数为NULL。这里设置了mask、绑定了处理函数、关在了要传输的数据，然后把事件放到了aeEventLoop.events列表中，但并没有执行处理函数，会等待被事件循环器调起
+        if (aeCreateFileEvent(server.el, sfd->fd[j], AE_READABLE, accept_handler,NULL) == AE_ERR) { // File指的是文件描述符，也就是IO。创建事件的同时，会绑定其处理函数，accept并无数据发过来，所以clientData参数为NULL。这里设置了mask、绑定了处理函数、关在了要传输的数据，然后把事件放到了aeEventLoop.events列表中，但并没有执行处理函数，会等待被事件循环器调起。accept_handler到时候会封装出client客户端连接
             /* Rollback */
             for (j = j-1; j >= 0; j--) aeDeleteFileEvent(server.el, sfd->fd[j], AE_READABLE);
             return C_ERR;
@@ -3371,7 +3371,7 @@ void initServer(void) {
 
     if (server.cluster_enabled) clusterInit();
     replicationScriptCacheInit();
-    scriptingInit(1);
+    scriptingInit(1); // lua的初始化
     slowlogInit();
     latencyMonitorInit();
     
@@ -3385,8 +3385,8 @@ void initServer(void) {
  * Thread Local Storage initialization collides with dlopen call.
  * see: https://sourceware.org/bugzilla/show_bug.cgi?id=19329 */
 void InitServerLast() {
-    bioInit();
-    initThreadedIO();
+    bioInit();  // BIO这里是指Background IO，如bgsave等
+    initThreadedIO();  // Redis多线程
     set_jemalloc_bg_thread(server.jemalloc_bg_thread);
     server.initial_memory_usage = zmalloc_used_memory();
 }
@@ -3742,7 +3742,7 @@ void call(client *c, int flags) {
         monotonic_start = getMonotonicUs();
 
     server.in_nested_call++;
-    c->cmd->proc(c); // 执行指令了, 具体哪个指令？看本文件中195行开始的指令列表
+    c->cmd->proc(c); // ‼️执行指令了, 具体哪个指令？看本文件中195行开始的指令列表
     server.in_nested_call--;
 
     /* In order to avoid performance implication due to querying the clock using a system call 3 times,
@@ -6414,7 +6414,7 @@ int main(int argc, char **argv) {
         moduleInitModulesSystemLast();
         moduleLoadFromQueue();
         ACLLoadUsersAtStartup();
-        InitServerLast();
+        InitServerLast();  // 这里把各个IO线程都初始化了
         loadDataFromDisk();
         if (server.cluster_enabled) {
             if (verifyClusterConfigWithData() == C_ERR) {

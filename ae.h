@@ -69,11 +69,11 @@ typedef void aeEventFinalizerProc(struct aeEventLoop *eventLoop, void *clientDat
 typedef void aeBeforeSleepProc(struct aeEventLoop *eventLoop);
 
 /* File event structure */
-typedef struct aeFileEvent { // 管着IO事件：accept/read/write
+typedef struct aeFileEvent { // 管着IO事件：accept/read/write，就想成是IO Event
     int mask; /* one of AE_(READABLE|WRITABLE|BARRIER) */
     aeFileProc *rfileProc;  // 读IO的函数指针
     aeFileProc *wfileProc;  // 写IO的函数指针
-    void *clientData;
+    void *clientData;       // 有没有数据的输入输出？accept的时候放空
 } aeFileEvent;
 
 /* Time event structure */

@@ -2216,14 +2216,14 @@ void processInputBuffer(client *c) { // 从内核搬数据
     }
 }
 
-void readQueryFromClient(connection *conn) { // 这个函数会被分段执行 1. 分配 2. IO读写（搬运数据） 3. 命令执行
+void readQueryFromClient(connection *conn) { // 这个函数会被分段执行 1. IO分配（由主线程来做） 2. IO读写（搬运数据） 3. 命令执行（主线程单线程执行）。（在IO线程的"run方法"IOThreadMain函数中被调起时，执行IO动作；在被main函数中的beforeSleep调用的时候，执行单线程计算，参考下面的processInputBuffer函数）。Redis不同于Kafka和Netty，是单reactor
     client *c = connGetPrivateData(conn);  // 之前注册readQueryFromClient的时候（下一行）已经设置好导航了
     int nread, readlen;
     size_t qblen;
 
     /* Check if we want to read from the client later when exiting from
      * the event loop. This is the case if threaded I/O is enabled. */
-    if (postponeClientRead(c)) return; // 分配。多线程（IO）模式下会先把client放入等待读列表，然后直接先返回
+    if (postponeClientRead(c)) return; // 分配。多线程（IO）模式下会先把client放入等待读列表，然后直接先返回。⚠️多线程一般会优化协会的过程，加快了用户空间到内核空间的数据搬运，而读取这一侧的多线程对性能没有太大帮助，这是由于req跟resp的不对称性。但是面对"写多读少"的情况，还是有些用的
 
     /* Update total number of reads on server。没有没上面if拦住，也就是说没有设置多个IO Threads帮忙搬运数据，单线程模式 */
     atomicIncr(server.stat_total_reads_processed, 1);
@@ -2247,7 +2247,7 @@ void readQueryFromClient(connection *conn) { // 这个函数会被分段执行 1
 
     qblen = sdslen(c->querybuf);  // 得到sds结构体的最后那一块实际数据buf的长度
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
-    c->querybuf = sdsMakeRoomFor(c->querybuf, readlen); // 从连接socket走系调，读到字节数组，放到query buffer
+    c->querybuf = sdsMakeRoomFor(c->querybuf, readlen); // 从连接socket走系调，下面读到字节数组，放到connection的query buffer中
     nread = connRead(c->conn, c->querybuf+qblen, readlen); // 从socket里面读数据， c->querybuf指的是s的地址，也就是实际buf数据的地址，不断积压，比如Redis multi
     if (nread == -1) {
         if (connGetState(conn) == CONN_STATE_CONNECTED) {
@@ -3556,7 +3556,7 @@ void *IOThreadMain(void *myid) { // IO Thread只负责读写行为。读出来cl
         listRewind(io_threads_list[id],&li);
         while((ln = listNext(&li))) {
             client *c = listNodeValue(ln);
-            if (io_threads_op == IO_THREADS_OP_WRITE) { // 需要写给客户端？
+            if (io_threads_op == IO_THREADS_OP_WRITE) { // 需要写给客户端？从这个if和if else可以看出来，IO线程负责从client读入和写回client
                 writeToClient(c,0);
             } else if (io_threads_op == IO_THREADS_OP_READ) { // 还是从客户端读取？
                 readQueryFromClient(c->conn);  // 最值钱的方法！最值钱的方法！！最值钱的方法！！！
@@ -3571,13 +3571,13 @@ void *IOThreadMain(void *myid) { // IO Thread只负责读写行为。读出来cl
 
 /* Initialize the data structures needed for threaded I/O. */
 void initThreadedIO(void) {
-    server.io_threads_active = 0; /* We start with threads not active. */
+    server.io_threads_active = 0; /* We start with threads not active. 懒 */
 
     /* Don't spawn any thread if the user selected a single thread:
      * we'll handle I/O directly from the main thread. */
-    if (server.io_threads_num == 1) return;
+    if (server.io_threads_num == 1) return;  // 没有开启多线程模式
 
-    if (server.io_threads_num > IO_THREADS_MAX_NUM) {
+    if (server.io_threads_num > IO_THREADS_MAX_NUM) {  // 多线程最多也不能超过128个，一般就是核心数或者核心数*2
         serverLog(LL_WARNING,"Fatal: too many I/O threads configured. "
                              "The maximum number is %d.", IO_THREADS_MAX_NUM);
         exit(1);
@@ -3586,7 +3586,7 @@ void initThreadedIO(void) {
     /* Spawn and initialize the I/O threads. */
     for (int i = 0; i < server.io_threads_num; i++) {
         /* Things we do for all the threads including the main thread. */
-        io_threads_list[i] = listCreate(); // IO线程池是一个由双向链表组成的数组，0位置上的链表中只有一个节点，就是main线程
+        io_threads_list[i] = listCreate(); // IO线程池是一个由双向链表（用来存储客户端）组成的数组，0位置上的链表中只有一个节点，就是main线程
         if (i == 0) continue; /* Thread 0 is the main thread. */
 
         /* Things we do only for the additional threads. */
@@ -3594,7 +3594,7 @@ void initThreadedIO(void) {
         pthread_mutex_init(&io_threads_mutex[i],NULL);
         setIOPendingCount(i, 0);
         pthread_mutex_lock(&io_threads_mutex[i]); /* Thread will be stopped. */
-        if (pthread_create(&tid,NULL,IOThreadMain,(void*)(long)i) != 0) { // new Thread (Runnable IOThreadMain)
+        if (pthread_create(&tid,NULL,IOThreadMain,(void*)(long)i) != 0) { // new Thread (Runnable IOThreadMain)， IOThreadMain就是Runnable中的那个run()方法
             serverLog(LL_WARNING,"Fatal: Can't initialize IO thread.");
             exit(1);
         }
@@ -3750,7 +3750,7 @@ int postponeClientRead(client *c) {
         !(c->flags & (CLIENT_MASTER|CLIENT_SLAVE|CLIENT_PENDING_READ|CLIENT_BLOCKED))) // c->flag上的这些标识位都为0
     {
         c->flags |= CLIENT_PENDING_READ; // 下一次被caller的if调用到就不会进来了，会return 0；
-        listAddNodeHead(server.clients_pending_read,c); // 分配
+        listAddNodeHead(server.clients_pending_read,c); // 分配。在头部插入节点
         return 1;
     } else {
         return 0;

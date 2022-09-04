@@ -76,7 +76,7 @@ struct connection {
     short int flags;
     short int refs;
     int last_errno;
-    void *private_data;
+    void *private_data;  // 这里类型是void *，因为accept之后度过来的可能是个client，而不是真实的数据
     ConnectionCallbackFunc conn_handler;
     ConnectionCallbackFunc write_handler;
     ConnectionCallbackFunc read_handler;

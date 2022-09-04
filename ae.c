@@ -163,7 +163,7 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask, // FileEvent(网
     }
     aeFileEvent *fe = &eventLoop->events[fd]; // 监听的所有客户端的读和写都会产生事件，放入events数组，以文件描述符作为下标
 
-    if (aeApiAddEvent(eventLoop, fd, mask) == -1)
+    if (aeApiAddEvent(eventLoop, fd, mask) == -1)  // 这里应该看ae_epoll.c，调用epoll_ctl了，注册，为了未来能有响应事件
         return AE_ERR;
     fe->mask |= mask;
     if (mask & AE_READABLE) fe->rfileProc = proc;  // 给文件事件绑定传进来的指定的处理函数，有可能是读事件，也有可能是写事件
