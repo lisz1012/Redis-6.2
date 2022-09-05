@@ -3522,7 +3522,7 @@ static inline unsigned long getIOPendingCount(int i) {
 static inline void setIOPendingCount(int i, unsigned long count) {
     atomicSetWithSync(io_threads_pending[i], count);
 }
-// 👇IO Thread的run方法👇
+// 👇IO Thread的"run()"方法👇
 void *IOThreadMain(void *myid) { // 刚启动时初始化，被server.c的initServerLast调用。IO Thread只负责读写行为。读出来client的输入，等业务线程处理完了，他们再把结果写回客户端。这个函数就相当于IO Thread的run方法
     /* The ID is the thread number (from 0 to server.iothreads_num-1), and is
      * used by the thread to just manipulate a single sub-array of clients. */
@@ -3535,19 +3535,19 @@ void *IOThreadMain(void *myid) { // 刚启动时初始化，被server.c的initSe
     makeThreadKillable();
 
     while(1) {
-        /* Wait for start */
+        /* Wait for start */ // 检查当前IO线程有没有被分配到IO的读写任务，否则就"长时间"卡在这里
         for (int j = 0; j < 1000000; j++) { // IO线程又可能在CPU上忙等空转，未必影响主线程，可能避免无故浪费闲置的CPU
-            if (getIOPendingCount(id) != 0) break; // getIOPendingCount返回值 == 0， 则当前线程不让出CPU，空转，但由于一般是多CPU多核，所以即便空转，也不会影响Redis主线程性能。一旦有IO事件就往下走。id标记了当前线程
+            if (getIOPendingCount(id) != 0) break; // getIOPendingCount返回值 == 0， 则当前线程不让出CPU，空转，但由于一般是多CPU多核，所以即便空转，也不会影响Redis主线程性能。一旦有IO事件就往下走。id标记了当前线程。io_threads_list被分配了client之后，会有getIOPendingCount(id) != 0
         }
 
-        /* Give the main thread a chance to stop this thread. */
-        if (getIOPendingCount(id) == 0) {
+        /* Give the main thread a chance to stop this thread. */ // 等着主线程中 3803、3804行检查这个pendingCount，以便其停止等待，开始处理server.clients_pending_read中的连接
+        if (getIOPendingCount(id) == 0) {  // 等了1000000个指令的时间，io_threads_pending[i]还是为0，则干脆让出CPU一下下，让主线程在 🚧 处别卡着了
             pthread_mutex_lock(&io_threads_mutex[id]);  // 当前IO线程应该会让出一下执行权？？
             pthread_mutex_unlock(&io_threads_mutex[id]);
             continue;
         }
 
-        serverAssert(getIOPendingCount(id) != 0);
+        serverAssert(getIOPendingCount(id) != 0);  // io_threads_list被分配了client之后，会有getIOPendingCount(id) != 0，且此时刚刚io_threads_op = IO_THREADS_OP_READ; 主线程此时先执行自己的读客户端。然后就会卡住等待总的pending==0，也就是所有的IO线程的3568行执行完，主线程才执行（执行server.clients_pending_read中各个客户端命令），而所有的IO线程又回到while的开头，开始等主线程了
 
         /* Process: note that the main thread will never touch our list
          * before we drop the pending count to 0. */
@@ -3559,13 +3559,13 @@ void *IOThreadMain(void *myid) { // 刚启动时初始化，被server.c的initSe
             if (io_threads_op == IO_THREADS_OP_WRITE) { // 判断IO Threads当前需要做的动作：需要写给客户端？从这个if和if else可以看出来，IO线程负责从client读入和写回client
                 writeToClient(c,0);
             } else if (io_threads_op == IO_THREADS_OP_READ) { // 判断IO Threads当前需要做的动作：还是从客户端读取？多线程
-                readQueryFromClient(c->conn);  // 最值钱的方法！最值钱的方法！！最值钱的方法！！！ readQueryFromClient 当被IO线程执行的时候，只是把client放进了server.clients_pending_read队列，等待主线程再来分配，见 handleClientsWithPendingReadsUsingThreads 函数，一旦io_threads_list[target_id]被分配了，则又会执行这个
+                readQueryFromClient(c->conn);  // 最值钱的方法！！！ readQueryFromClient 当被IO线程执行的时候，只是把client放进了server.clients_pending_read队列，等待主线程再来分配，见 handleClientsWithPendingReadsUsingThreads 函数，一旦io_threads_list[target_id]被分配了，则又会执行这个
             } else {
                 serverPanic("io_threads_op value is unknown");
             }
         }
-        listEmpty(server.clients_pending_read);  // 当前循环中，IO线程把他的所有客户端都放进 server.clients_pending_read 中了
-        setIOPendingCount(id, 0);  // 上面会检查这个，触发忙等一段时间
+        listEmpty(io_threads_list[id]);  // 清空原来的分配结果
+        setIOPendingCount(id, 0);   // 标志着一个IO Thread这一轮处理的结束，上面会检查这个，触发忙等一段时间；而在主线程中 3803、3804行会检查这个pendingCount
     }
 }
 
@@ -3775,7 +3775,7 @@ int handleClientsWithPendingReadsUsingThreads(void) { // 被beforeSleep（也就
     int item_id = 0;
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);
-        int target_id = item_id % server.io_threads_num;  // 轮询分配clients给各个IO线程
+        int target_id = item_id % server.io_threads_num;  // 轮询分配clients给各个IO线程，从现在到3800行while循环跳出，这期间IO线程也同时在执行
         listAddNodeTail(io_threads_list[target_id],c);  // 每个IO线程通过其下标就可以找到对应要处理的clients，队列，插到最后。与此同时，各个IO thread可能还在跑着呢，下面第3800行阻塞等待他们完成
         item_id++;
     }
@@ -3797,11 +3797,11 @@ int handleClientsWithPendingReadsUsingThreads(void) { // 被beforeSleep（也就
     listEmpty(io_threads_list[0]);  // 清空主线程中此次待处理的clients
 
     /* Wait for all the other threads to end their work. */
-    while(1) {  // 主线程卡在这里，忙等各个IO线程完成工作，在这里跟各个IO线程"同步"一下。由于上面设置了io_threads_op = IO_THREADS_OP_READ; 则这里等待的是：所有IO线程都把clients放入server.clients_pending_read，并清空他们各自的clients列表：io_threads[id]
+    while(1) {  // 🚧🚧 主线程卡在这里‼ 🚧🚧，忙等各个IO线程完成工作，在这里跟各个IO线程"同步"一下。由于上面设置了io_threads_op = IO_THREADS_OP_READ; 则这里等待的是：所有IO线程都把clients放入server.clients_pending_read，并清空他们各自的clients列表：io_threads[id]
         unsigned long pending = 0;
-        for (int j = 1; j < server.io_threads_num; j++)
+        for (int j = 1; j < server.io_threads_num; j++) // j从1开始，也就是跳过主线程，只处理纯IO线程
             pending += getIOPendingCount(j);
-        if (pending == 0) break;
+        if (pending == 0) break; // 没有CountdownLatch这中东西，真的好麻烦～
     }
 
     /* Run the list of clients again to process the new buffers. */
