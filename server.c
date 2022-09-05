@@ -2451,7 +2451,7 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
         flushAppendOnlyFile(0);
 
     /* Handle writes with pending output buffers. */
-    handleClientsWithPendingWritesUsingThreads();
+    handleClientsWithPendingWritesUsingThreads();  // 6.x IO多线程
 
     /* Close clients that need to be closed asynchronous */
     freeClientsInAsyncFreeQueue();

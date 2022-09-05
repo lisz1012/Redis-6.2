@@ -388,7 +388,7 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
         }
 
         if (eventLoop->beforesleep != NULL && flags & AE_CALL_BEFORE_SLEEP) // beforesleep是个函数指针
-            eventLoop->beforesleep(eventLoop);  // eventLoop->beforesleep函数指针指向了server.c的beforeSleep函数
+            eventLoop->beforesleep(eventLoop);  // eventLoop->beforesleep函数指针指向了server.c的beforeSleep函数。由于这个eventLoop->beforesleep以及本函数都是被反应堆调用的，则都是主线程在执行他们。这个eventLoop->beforesleep中主线程汇总执行了各个IO线程的客户端命令
 
         /* Call the multiplexing API, will return only on timeout or when
          * some event fires. */
