@@ -3535,7 +3535,7 @@ void *IOThreadMain(void *myid) { // 刚启动时初始化，被server.c的initSe
     makeThreadKillable();
 
     while(1) {
-        /* Wait for start */ // 检查当前IO线程有没有被分配到IO的读写任务，否则就"长时间"卡在这里
+        /* Wait for start */ // 检查当前IO线程有没有被分配到IO的读写任务，否则就"长时间"卡在这里，等3788行分配clients然后
         for (int j = 0; j < 1000000; j++) { // IO线程又可能在CPU上忙等空转，未必影响主线程，可能避免无故浪费闲置的CPU
             if (getIOPendingCount(id) != 0) break; // getIOPendingCount返回值 == 0， 则当前线程不让出CPU，空转，但由于一般是多CPU多核，所以即便空转，也不会影响Redis主线程性能。一旦有IO事件就往下走。id标记了当前线程。io_threads_list被分配了client之后，会有getIOPendingCount(id) != 0
         }
@@ -3564,7 +3564,7 @@ void *IOThreadMain(void *myid) { // 刚启动时初始化，被server.c的initSe
                 serverPanic("io_threads_op value is unknown");
             }
         }
-        listEmpty(io_threads_list[id]);  // 清空原来的分配结果
+        listEmpty(io_threads_list[id]);  // 清空原来的分配结果，在此之后主线程会先消费完server.clients_pending_read中的事件，然后在新的一个循环中给io_threads_list[id]在分配新的一批clients，到那时，这个IO线程也应该在3540行等到了新clients的个数，开始线下执行读取了，第一次循环readQueryFromClient只是把clients放入server.clients_pending_read，第二次循环执行clients就读取数据到各个client的buffer了，也就是server.clients_pending_read中的clients都有输入进来的数据了，然后主线程就拿着这些数据去执行命令
         setIOPendingCount(id, 0);   // 标志着一个IO Thread这一轮处理的结束，上面会检查这个，触发忙等一段时间；而在主线程中 3803、3804行会检查这个pendingCount
     }
 }
@@ -3689,7 +3689,7 @@ int handleClientsWithPendingWritesUsingThreads(void) { // 对照 handleClientsWi
         }
 
         int target_id = item_id % server.io_threads_num;          // 轮询着给IO Thread分发要写回数据的客户端，此时IO线程还跑着呢‼️ 而 IOThreadMain 函数中有： if (io_threads_op == IO_THREADS_OP_WRITE) writeToClient(c,0); 分头并行地把各个客户端的返回数据写回去，而 3713行 所等待的也是这件事情
-        listAddNodeTail(io_threads_list[target_id],c);  // io_threads_list是一个链表组成的的数组
+        listAddNodeTail(io_threads_list[target_id],c);  // io_threads_list是一个链表组成的的数组，这里是主线程给各个IO线程分配clients以便他们并行写出结果
         item_id++;
     }
 
@@ -3701,7 +3701,7 @@ int handleClientsWithPendingWritesUsingThreads(void) { // 对照 handleClientsWi
         setIOPendingCount(j, count);               // (原子性)统计总共有多少有读写事件的clients，写入pending的统计数组：io_threads_pending，分别统计各个IO线程的读写事件的个数
     }  // 这里一set，在j对应的IO线程中执行的IOThreadMain中的getIOPendingCount就会感知到对应的链表不为空，从而使得CPU跳出空转继续执行
 
-    /* Also use the main thread to process a slice of clients. */
+    /* Also use the main thread to process a slice of clients. 其实也是先干点别的，等等各个IO线程，其实主线程也是个IO线程 */
     listRewind(io_threads_list[0],&li);
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);
@@ -3714,7 +3714,7 @@ int handleClientsWithPendingWritesUsingThreads(void) { // 对照 handleClientsWi
         unsigned long pending = 0;
         for (int j = 1; j < server.io_threads_num; j++)
             pending += getIOPendingCount(j);
-        if (pending == 0) break;
+        if (pending == 0) break;  // 像一个CountdownLatch
     }
 
     /* Run the list of clients again to install the write handler where
@@ -3805,11 +3805,11 @@ int handleClientsWithPendingReadsUsingThreads(void) { // 被beforeSleep（也就
     }
 
     /* Run the list of clients again to process the new buffers. */
-    while(listLength(server.clients_pending_read)) { // 主线程（‼️处理计算还是得由主线程自己来，单线程！）遍历有未执行指令的客户端，他们可能来自各个IO线程，见 IOThreadMain 函数
+    while(listLength(server.clients_pending_read)) { // 主线程（‼️处理计算还是得由主线程自己来，单线程！）遍历有未执行指令的客户端，他们可能来自各个IO线程，见 IOThreadMain 函数，经历过3800行的等待后，server.clients_pending_read的各个client的buffer就被IO线程读出来的数据填充了，为这里while循环中执行指令提供了条件
         ln = listFirst(server.clients_pending_read);
         client *c = listNodeValue(ln);
-        c->flags &= ~CLIENT_PENDING_READ;    // 只有主线程才能取消掉CLIENT_PENDING_READ这个标志位。以至于执行到下面👇processInputBuffer（3822行）中对客户端指令的处理代码
-        listDelNode(server.clients_pending_read,ln);
+        c->flags &= ~CLIENT_PENDING_READ;    // 当前这个函数是被放在反应堆里执行的，所以只有主线程才能取消掉CLIENT_PENDING_READ这个标志位。以至于执行到下面👇processInputBuffer（3822行）中对客户端指令的处理代码
+        listDelNode(server.clients_pending_read,ln); // 随用随清理
 
         serverAssert(!(c->flags & CLIENT_BLOCKED));
         if (processPendingCommandsAndResetClient(c) == C_ERR) {  // 这里面会执行客户端发过来的指令
@@ -3824,8 +3824,8 @@ int handleClientsWithPendingReadsUsingThreads(void) { // 被beforeSleep（也就
         /* We may have pending replies if a thread readQueryFromClient() produced
          * replies and did not install a write handler (it can't).
          */
-        if (!(c->flags & CLIENT_PENDING_WRITE) && clientHasPendingReplies(c))
-            clientInstallWriteHandler(c);  // 这里面只是设置"可写"标志位并加入要写出的目标clients的队列，以便 handleClientsWithPendingReadsUsingThreads 后续的 handleClientsWithPendingWritesUsingThreads 往外写返回的数据
+        if (!(c->flags & CLIENT_PENDING_WRITE) && clientHasPendingReplies(c)) // 标志位是CLIENT_PENDING_WRITE，且已经准备好返回数据了
+            clientInstallWriteHandler(c);  // 这里面只是设置"可写"标志位并加入要写出的目标clients的队列，以便 handleClientsWithPendingReadsUsingThreads 后续的 handleClientsWithPendingWritesUsingThreads 往外写返回的数据。每一个客户端client又被放入了 server.clients_pending_write 写出队列，随后被 handleClientsWithPendingWritesUsingThreads 分配给各个IO线程
     }
 
     /* Update processed count on server */

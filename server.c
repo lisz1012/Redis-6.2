@@ -2041,7 +2041,7 @@ void cronUpdateMemoryStats() {
  * so in order to throttle execution of things we want to do less frequently
  * a macro is used: run_with_period(milliseconds) { .... }
  */
-
+// 过期、心跳、扩容、aof、RDB等事情
 int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     int j;
     UNUSED(eventLoop);

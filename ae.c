@@ -399,7 +399,7 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
             eventLoop->aftersleep(eventLoop);
 
         for (j = 0; j < numevents; j++) {
-            aeFileEvent *fe = &eventLoop->events[eventLoop->fired[j].fd]; // 取出有事件的文件描述符来
+            aeFileEvent *fe = &eventLoop->events[eventLoop->fired[j].fd]; // 取出有事件的文件描述符来，在aeApiPoll中北epoll填充了
             int mask = eventLoop->fired[j].mask;
             int fd = eventLoop->fired[j].fd;  // fd是监听的socket，为啥不挪到上面去？
             int fired = 0; /* Number of events fired for current fd. */
