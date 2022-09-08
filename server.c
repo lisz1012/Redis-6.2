@@ -2447,7 +2447,7 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
     trackingBroadcastInvalidationMessages();
 
     /* Write the AOF buffer on disk */
-    if (server.aof_state == AOF_ON)  // 由于每次处理命令之后都会临时往这里面暂存一些aof内容，在这里调用刷写策略，在合适的时机一起刷到硬盘.
+    if (server.aof_state == AOF_ON)  // 由于每次处理命令之后都会临时往这里面暂存一些aof内容，在这里调用刷写策略，在合适的时机一起刷到硬盘
         flushAppendOnlyFile(0);
 
     /* Handle writes with pending output buffers. */
