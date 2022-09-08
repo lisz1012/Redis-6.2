@@ -3689,7 +3689,7 @@ int handleClientsWithPendingWritesUsingThreads(void) { // 对照 handleClientsWi
         }
 
         int target_id = item_id % server.io_threads_num;          // 轮询着给IO Thread分发要写回数据的客户端，此时IO线程还跑着呢‼️ 而 IOThreadMain 函数中有： if (io_threads_op == IO_THREADS_OP_WRITE) writeToClient(c,0); 分头并行地把各个客户端的返回数据写回去，而 3713行 所等待的也是这件事情
-        listAddNodeTail(io_threads_list[target_id],c);  // io_threads_list是一个链表组成的的数组，这里是主线程给各个IO线程分配clients以便他们并行写出结果
+        listAddNodeTail(io_threads_list[target_id],c);  // io_threads_list是一个链表组成的的数组，这里是主线程给各个IO线程分配clients以便他们并行写出结果，此时另外的IO线程也正在执行，到了一定的时候就会看到被分配的这些clients
         item_id++;
     }
 
