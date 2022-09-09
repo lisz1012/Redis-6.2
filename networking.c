@@ -3675,7 +3675,7 @@ int handleClientsWithPendingWritesUsingThreads(void) { // 对照 handleClientsWi
     /* Distribute the clients across N different lists. */
     listIter li;
     listNode *ln;
-    listRewind(server.clients_pending_write,&li); // 相当于List.iterator()得到迭代器， 指针初始化到头一个。
+    listRewind(server.clients_pending_write,&li); // 相当于List.iterator()得到迭代器， 指针初始化到头一个
     int item_id = 0;
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);
