@@ -3346,7 +3346,7 @@ void initServer(void) {
     /* Register before and after sleep handlers (note this needs to be done
      * before loading persistence since it is used by processEventsWhileBlocked. */
     aeSetBeforeSleepProc(server.el,beforeSleep); // 绑定睡前的处理函数，reactor响应器中要做的事情，sleep是指线程阻塞，比如epoll_wait等待IO事件
-    aeSetAfterSleepProc(server.el,afterSleep);    // 绑定睡后的处理函数，睡后处理的事情并不多，主要就在睡前做事情
+    aeSetAfterSleepProc(server.el,afterSleep);    // 绑定睡后的处理函数，睡后处理的事情并不多，主要就在睡前做事情，这里两个都使用了函数指针
 
     /* Open the AOF file if needed. */
     if (server.aof_state == AOF_ON) {
