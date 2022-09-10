@@ -631,7 +631,7 @@ int getDoubleFromObject(const robj *o, double *target) {
     return C_OK;
 }
 
-int getDoubleFromObjectOrReply(client *c, robj *o, double *target, const char *msg) {
+int getDoubleFromObjectOrReply(client *c, robj *o, double *target, const char *msg) { // 填充xy
     double value;
     if (getDoubleFromObject(o, &value) != C_OK) {
         if (msg != NULL) {

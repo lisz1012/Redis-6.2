@@ -869,7 +869,7 @@ typedef struct client {
                                replication stream that we are receiving from
                                the master. */
     size_t querybuf_peak;   /* Recent (100ms or more) peak of querybuf size. */
-    int argc;               /* Num of arguments of current command. */
+    int argc;               /* Num of arguments of current command. 命令arity如果是整数，表示命令的请求参数（包括命令名称）数量是一个固定的值；如果是负数，表示请求参数的最小数量。*/
     robj **argv;            /* Arguments of current command. 各种命令/参数/属性/选项/key/val都被封装进了redisObject */
     int original_argc;      /* Num of arguments of original command if arguments were rewritten. */
     robj **original_argv;   /* Arguments of original command if arguments were rewritten. */

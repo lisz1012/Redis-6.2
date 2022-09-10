@@ -1146,7 +1146,7 @@ static void acceptCommonHandler(connection *conn, int flags, char *ip) {
     }
 
     /* Create connection and client */
-    if ((c = createClient(conn)) == NULL) {
+    if ((c = createClient(conn)) == NULL) {  // 在里面conn->private_data被设置成了初始化的c client）
         serverLog(LL_WARNING,
             "Error registering fd event for the new client: %s (conn: %s)",
             connGetLastError(conn),

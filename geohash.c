@@ -118,7 +118,7 @@ void geohashGetCoordRange(GeoHashRange *long_range, GeoHashRange *lat_range) {
     lat_range->min = GEO_LAT_MIN;
 }
 
-int geohashEncode(const GeoHashRange *long_range, const GeoHashRange *lat_range,
+int geohashEncode(const GeoHashRange *long_range, const GeoHashRange *lat_range, // 选出某个半径范围内的所有地点：见 georadiusbymember 命令
                   double longitude, double latitude, uint8_t step,
                   GeoHashBits *hash) {
     /* Check basic arguments sanity. */

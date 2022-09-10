@@ -94,7 +94,7 @@ int decodeGeohash(double bits, double *xy) {
 int extractLongLatOrReply(client *c, robj **argv, double *xy) {
     int i;
     for (i = 0; i < 2; i++) {
-        if (getDoubleFromObjectOrReply(c, argv[i], xy + i, NULL) !=
+        if (getDoubleFromObjectOrReply(c, argv[i], xy + i, NULL) !=  // 填充xy数组，经纬度
             C_OK) {
             return C_ERR;
         }
@@ -350,8 +350,8 @@ void scoresOfGeoHashBox(GeoHashBits hash, GeoHashFix52Bits *min, GeoHashFix52Bit
 int membersOfGeoHashBox(robj *zobj, GeoHashBits hash, geoArray *ga, GeoShape *shape, unsigned long limit) {
     GeoHashFix52Bits min, max;
 
-    scoresOfGeoHashBox(hash,&min,&max);
-    return geoGetPointsInRange(zobj, min, max, shape, ga, limit);
+    scoresOfGeoHashBox(hash,&min,&max);  // 先计算score上下限
+    return geoGetPointsInRange(zobj, min, max, shape, ga, limit);  // 然后就从zset中根据上面算出的上下限取地点，放入ga数组
 }
 
 /* Search all eight neighbors + self geohash box */
@@ -359,8 +359,8 @@ int membersOfAllNeighbors(robj *zobj, GeoHashRadius n, GeoShape *shape, geoArray
     GeoHashBits neighbors[9];
     unsigned int i, count = 0, last_processed = 0;
     int debugmsg = 0;
-
-    neighbors[0] = n.hash;
+    // 实际上除了GeoHashRadius自己范围内的点，还要检查8个邻居，以防一种特殊情况：相邻的地点由于出现在不同的格子里，他们的GeoHash值相差比较大，导致在跳表中其实并不相邻，导致该地点漏选 https://glass-ladybug-e14.notion.site/GeoHash-7cb7224b43324fe18fad85510fa5cf9f。
+    neighbors[0] = n.hash; // 这8个格子顺序有讲究：先从自己开始，然后东西南北次之，最远的对角线排在最后，因为可能只选出最近的若干个地点
     neighbors[1] = n.neighbors.north;
     neighbors[2] = n.neighbors.south;
     neighbors[3] = n.neighbors.east;
@@ -371,7 +371,7 @@ int membersOfAllNeighbors(robj *zobj, GeoHashRadius n, GeoShape *shape, geoArray
     neighbors[8] = n.neighbors.south_west;
 
     /* For each neighbor (*and* our own hashbox), get all the matching
-     * members and add them to the potential result list. */
+     * members and add them to the potential result list. */ // 得到试探性的结果
     for (i = 0; i < sizeof(neighbors) / sizeof(*neighbors); i++) {
         if (HASHISZERO(neighbors[i])) {
             if (debugmsg) D("neighbors[%d] is zero",i);
@@ -518,7 +518,7 @@ void georadiusGeneric(client *c, int srcKeyIndex, int flags) {
     int storedist = 0; /* 0 for STORE, 1 for STOREDIST. */
 
     /* Look up the requested zset */
-    robj *zobj = lookupKeyRead(c->db, c->argv[srcKeyIndex]);
+    robj *zobj = lookupKeyRead(c->db, c->argv[srcKeyIndex]);  // 从Redis中寻找当初geoadd加进来的那个geo的key，其后面是（公园、餐馆）等位置坐标和名称
     if (checkType(c, zobj, OBJ_ZSET)) return;
 
     /* Find long/lat to use for radius or box search based on inquiry type */
@@ -535,11 +535,11 @@ void georadiusGeneric(client *c, int srcKeyIndex, int flags) {
          * parsing, so we know which reply to use depending on the STORE flag. */
         base_args = 5;
     } else if (flags & RADIUS_MEMBER) {
-        /* GEORADIUSBYMEMBER or GEORADIUSBYMEMBER_RO */
-        base_args = 5;
-        shape.type = CIRCULAR_TYPE;
+        /* GEORADIUSBYMEMBER or GEORADIUSBYMEMBER_RO */ // 例如：`georadiusbynumber company Google 10km count 5 asc` 表示Google所对应的经纬度坐标的 5km 范围内属于company key的最近的3个地点
+        base_args = 5;   // 注意⚠️： 关于参数的个数，从命令名称开始算起（https://jackeyzhe.github.io/2019/07/01/Redis命令详解：Server/）
+        shape.type = CIRCULAR_TYPE;  // 按照圆形寻找
         robj *member = c->argv[2];
-        if (longLatFromMember(zobj, member, shape.xy) == C_ERR) {
+        if (longLatFromMember(zobj, member, shape.xy) == C_ERR) { // 填充经纬度shape.xy
             addReplyError(c, "could not decode requested zset member");
             return;
         }
@@ -574,12 +574,12 @@ void georadiusGeneric(client *c, int srcKeyIndex, int flags) {
                 withcoords = 1;
             } else if (!strcasecmp(arg, "any")) {
                 any = 1;
-            } else if (!strcasecmp(arg, "asc")) {
+            } else if (!strcasecmp(arg, "asc")) {   // 按照距离从小到大，常用
                 sort = SORT_ASC;
-            } else if (!strcasecmp(arg, "desc")) {
+            } else if (!strcasecmp(arg, "desc")) {  // 按照距离从大到小
                 sort = SORT_DESC;
-            } else if (!strcasecmp(arg, "count") && (i+1) < remaining) {
-                if (getLongLongFromObjectOrReply(c, c->argv[base_args+i+1],
+            } else if (!strcasecmp(arg, "count") && (i+1) < remaining) { // x公里内的各个地点不要全部返回，只返回count个
+                if (getLongLongFromObjectOrReply(c, c->argv[base_args+i+1], // "count 3" 这里读出来前（后）3个的那个"3"
                                                  &count, NULL) != C_OK) return;
                 if (count <= 0) {
                     addReplyError(c,"COUNT must be > 0");
