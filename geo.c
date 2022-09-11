@@ -259,7 +259,7 @@ int geoGetPointsInRange(robj *zobj, double min, double max, GeoShape *shape, geo
     size_t origincount = ga->used;
     sds member;
 
-    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) { // 有序集合底层实现有可能是压表或者跳表
         unsigned char *zl = zobj->ptr;
         unsigned char *eptr, *sptr;
         unsigned char *vstr = NULL;
@@ -289,7 +289,7 @@ int geoGetPointsInRange(robj *zobj, double min, double max, GeoShape *shape, geo
             if (ga->used && limit && ga->used >= limit) break;
             zzlNext(zl, &eptr, &sptr);
         }
-    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) { // 跳表结构实现zset
         zset *zs = zobj->ptr;
         zskiplist *zsl = zs->zsl;
         zskiplistNode *ln;
@@ -308,7 +308,7 @@ int geoGetPointsInRange(robj *zobj, double min, double max, GeoShape *shape, geo
             ele = sdsdup(ele);
             if (geoAppendIfWithinShape(ga,shape,ln->score,ele)
                 == C_ERR) sdsfree(ele);
-            if (ga->used && limit && ga->used >= limit) break;
+            if (ga->used && limit && ga->used >= limit) break;  // 当设置了count且取够数了，则返回
             ln = ln->level[0].forward;
         }
     }
@@ -360,7 +360,7 @@ int membersOfAllNeighbors(robj *zobj, GeoHashRadius n, GeoShape *shape, geoArray
     unsigned int i, count = 0, last_processed = 0;
     int debugmsg = 0;
     // 实际上除了GeoHashRadius自己范围内的点，还要检查8个邻居，以防一种特殊情况：相邻的地点由于出现在不同的格子里，他们的GeoHash值相差比较大，导致在跳表中其实并不相邻，导致该地点漏选 https://glass-ladybug-e14.notion.site/GeoHash-7cb7224b43324fe18fad85510fa5cf9f。
-    neighbors[0] = n.hash; // 这8个格子顺序有讲究：先从自己开始，然后东西南北次之，最远的对角线排在最后，因为可能只选出最近的若干个地点
+    neighbors[0] = n.hash; // 这8个格子顺序有讲究：先从自己开始，然后东西南北次之，最远的对角线排在最后，因为可能只选出最近的若干个地点。另外，由于这8个格子都是相邻的，所以也不太能降低效率
     neighbors[1] = n.neighbors.north;
     neighbors[2] = n.neighbors.south;
     neighbors[3] = n.neighbors.east;
@@ -711,11 +711,11 @@ void georadiusGeneric(client *c, int srcKeyIndex, int flags) {
     if (count != 0 && sort == SORT_NONE && !any) sort = SORT_ASC;
 
     /* Get all neighbor geohash boxes for our radius search */
-    GeoHashRadius georadius = geohashCalculateAreasByShapeWGS84(&shape);
+    GeoHashRadius georadius = geohashCalculateAreasByShapeWGS84(&shape);  // 根据shape的radius得到了中心及其8个邻居
 
     /* Search the zset for all matching points */
     geoArray *ga = geoArrayCreate();
-    membersOfAllNeighbors(zobj, georadius, &shape, ga, any ? count : 0);
+    membersOfAllNeighbors(zobj, georadius, &shape, ga, any ? count : 0); // 真正的计算
 
     /* If no matching results, the user gets an empty reply. */
     if (ga->used == 0 && storekey == NULL) {
