@@ -351,7 +351,7 @@ int membersOfGeoHashBox(robj *zobj, GeoHashBits hash, geoArray *ga, GeoShape *sh
     GeoHashFix52Bits min, max;
 
     scoresOfGeoHashBox(hash,&min,&max);  // 先计算score上下限
-    return geoGetPointsInRange(zobj, min, max, shape, ga, limit);  // 然后就从zset中根据上面算出的上下限取地点，放入ga数组
+    return geoGetPointsInRange(zobj, min, max, shape, ga, limit);  // 然后就从zset中根据上面算出的上下限取地点，放入ga数组.
 }
 
 /* Search all eight neighbors + self geohash box */
